@@ -23,7 +23,8 @@ class ScreenImage(ttk.Frame):
 
         #Preload Images
         self.load_image("start", "dv_start_screen_with_buttons.png")
-        self.load_image("court", "court_dark_mode.png")
+        self.load_image("court_light", "court_light_mode.png")
+        self.load_image("court_dark", "court_dark_mode.png")
 
         self.bind("<Configure>", lambda e: self.image_draw())
 
