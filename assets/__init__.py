@@ -1,0 +1,1 @@
+#Ensures that "assets" is identified as a package

@@ -1,0 +1,1 @@
+#Ensures that "session_data" is identified as a package
