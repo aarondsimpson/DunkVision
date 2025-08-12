@@ -4,7 +4,7 @@ from tkinter import ttk, messagebox
 from src.config import ICON_PNG, ICON_ICO
 from src.user_interface.court_canvas import StartScreen, CourtScreen
 from src.user_interface.court_frames import CourtFrame
-from src.user_interface.player_dialogs import confirm_quit
+from src.user_interface.player_dialogs import confirm_action
 
 class DunkVisionApp(tk.Tk):
     def __init__(self):
@@ -80,5 +80,5 @@ class DunkVisionApp(tk.Tk):
 
 
     def on_app_close(self):
-        if confirm_quit():
+        if confirm_action("quit"):
             self.destroy()
