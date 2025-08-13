@@ -284,7 +284,7 @@ class SideBar(ttk.Frame):
         self.rowconfigure(2, weight=1)
 
         #Add and Remove Buttons
-        self.add_btn = ttk.Button(self, text="Add", command=self.add_player, state="disabled")
+        self.add_btn = ttk.Button(self, text="Add", command=self.add_player)
         self.add_btn.grid(row=3, column=0, padx=8, pady=(6,4), sticky="ew")
         
         self.remove_btn = ttk.Button(self, text="Remove", command=self.remove_selected_player, state="disabled")
@@ -292,7 +292,7 @@ class SideBar(ttk.Frame):
         
         ttk.Separator(self, orient="horizontal").grid(row=5, column=0, padx=8, pady=(0,6), sticky="ew")
         
-        self.rename_btn = ttk.Button(self, text="Rename Team", command=self.rename_team, state="disabled")
+        self.rename_btn = ttk.Button(self, text="Rename Team", command=self.rename_team)
         self.rename_btn.grid(row=6, column=0, padx=9, pady=(0,10), sticky="ew")
 
         self.player_buttons = []
@@ -334,13 +334,8 @@ class SideBar(ttk.Frame):
 
         key = self.controller.selected_team_key.get()
         for role_or_name in self.controller.rosters[key]:
-            b = ttk.Button(
-                self.player_list_frame, 
-                text=role_or_name,
-                style="Player.TButton", 
-                command=lambda btn=None: None
-                )
-            b.configure(command=lambda btn=b: self.selected_player_button(btn))
+            b = ttk.Button(self.player_list_frame, text=role_or_name, style="Player.TButton")
+            b.configure(command=lambda btn=b: self.select_player_button(btn))
             b.pack(fill="x", padx=6, pady=2)
             self.player_buttons.append(b)
 
@@ -350,8 +345,7 @@ class SideBar(ttk.Frame):
         if self.selected_player_button is btn:
             btn.configure(style="Player.TButton")
             self.selected_player_button=None
-            if hasattr(self, "remove_btn"):
-                self.remove_btn.configure(state="disabled")
+            self.remove_btn.configure(state="disabled")
             return
         if self.selected_player_button is not None:
             try:
@@ -360,8 +354,7 @@ class SideBar(ttk.Frame):
                 pass
         btn.configure(style="PlayerSelected.TButton")
         self.selected_player_button = btn
-        if hasattr (self, "remove_btn"):
-            self.remove_btn.configure(state="normal")
+        self.remove_btn.configure(state="normal")
 
     def add_player(self):
         key = self.controller.selected_team_key.get()
