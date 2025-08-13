@@ -23,7 +23,7 @@ class ScreenImage(ttk.Frame):
         self.load_image("court_light", "court_light_mode.png")
         self.load_image("court_dark", "court_dark_mode.png")
 
-        self.bind("<Configure>", lambda e: self.image_draw())
+        self.bind("<Configure>", lambda _: self.image_draw())
 
     def load_image(self, key, filename):
         path = SCREEN_IMAGES_DIR / filename
