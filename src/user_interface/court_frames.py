@@ -7,7 +7,7 @@ from PIL import ImageGrab
 
 from .court_canvas import ScreenImage
 from .player_dialogs import confirm, info, error
-from .modals import add_player_dialog, rename_team_dialog
+from .modals import add_player_dialog as add_player_modal, rename_team_dialog
 
 BAR_HEIGHT = 44
 SIDE_WIDTH = 220
@@ -280,7 +280,7 @@ class SideBar(ttk.Frame):
         self.rowconfigure(2, weight=1)
 
         #Add and Remove Buttons
-        ttk.Button(self, text="Add", command=self.add_player_dialog).grid(row=3, column=0, padx=8, pady=(6,4), sticky="ew")
+        ttk.Button(self, text="Add", command=self.add_player).grid(row=3, column=0, padx=8, pady=(6,4), sticky="ew")
         ttk.Button(self, text="Remove", command=self.remove_selected_player).grid(row=4, column=0, padx=8, pady=(0,8), sticky="ew")
         ttk.Separator(self, orient="horizontal").grid(row=5, column=0, padx=8, pady=(0,6), sticky="ew")
         ttk.Button(self, text="Rename Team", command=self.rename_team).grid(row=6, column=0, padx=9, pady=(0,10), sticky="ew")
@@ -300,8 +300,8 @@ class SideBar(ttk.Frame):
         menu.delete(0, "end")
         for key in self.controller.team_order:
             label=labels[key]
-            menu.add_command(label=label, command=tk.setit(self.team_dropdown_var, label))
-        current_key = self.self.controller.selected_team_key.get()
+            menu.add_command(label=label, command=tk._setit(self.team_dropdown_var, label))
+        current_key = self.controller.selected_team_key.get()
         self.team_dropdown_var.set(labels[current_key])
 
     def on_team_change(self):
@@ -323,17 +323,17 @@ class SideBar(ttk.Frame):
 
     #Button Handlers
 
-    def add_player_dialog(self):
+    def add_player(self):
         key = self.controller.selected_team_key.get()
         team_label = self.controller.team_names[key].get()
         positions = ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"]
-        res = add_player_dialog(self, team_label, positions)
+        res = add_player_modal(self, team_label, positions)
         if not res:
             return
         self.controller.rosters[key].append(res["name"])
         self.refresh_player_list()
         if hasattr(self.controller, "set_status"):
-            self.controller.set_status(f"Added {res['name']} ({res['position']}) to {team}")
+            self.controller.set_status(f"Added {res['name']} ({res['position']}) to {team_label}")
             
     def remove_selected_player(self):
         if not self.selected_player_button:
