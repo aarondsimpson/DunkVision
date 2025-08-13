@@ -5,9 +5,9 @@ import tkinter as tk
 from tkinter import ttk, filedialog
 from PIL import ImageGrab
 
-from src.user_interface.court_canvas import ScreenImage
-from src.user_interface.player_dialogs import confirm, info
-from src.user_interface.modals import add_player_dialog
+from .court_canvas import ScreenImage
+from .player_dialogs import confirm, info, error
+from .modals import add_player_dialog
 
 BAR_HEIGHT = 44
 SIDE_WIDTH = 220

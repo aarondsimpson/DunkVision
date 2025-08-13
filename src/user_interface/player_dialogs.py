@@ -1,7 +1,7 @@
 from __future__ import annotations
 from tkinter import messagebox, Toplevel, ttk, StringVar, Misc, Entry, Frame
 
-MESSAGES = dict[str, dict[str, str]] = {
+MESSAGES: dict[str, dict[str, str]] = {
     "quit": {
         "title": "Quit", 
         "message": "Unsaved work will be lost. Quit?"
