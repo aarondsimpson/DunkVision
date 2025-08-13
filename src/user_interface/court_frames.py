@@ -34,17 +34,17 @@ class CourtFrame(ttk.Frame):
         self.actions=[]
         self.redo_stack=[]
         self.data_points=[]
-        self.team_order=["My Team","Their Team"]
+        self.team_order=["home","away"]
         
         self.team_names={
-            "My Team": tk.StringVar(value="My Team"),
-            "Their Team": tk.StringVar(value="Their Team")
+            "home": tk.StringVar(value="My Team"),
+            "away": tk.StringVar(value="Their Team")
         }
         self.rosters={
-            "My Team": ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"],
-            "Their Team": ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"],
+            "home": ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"],
+            "away": ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"],
         }
-        self.selected_team_key=tk.StringVar(value="My Team")
+        self.selected_team_key=tk.StringVar(value="home")
 
         #Layout Scaffold
         self.grid_rowconfigure(1, weight=1)
@@ -193,6 +193,19 @@ class CourtFrame(ttk.Frame):
     def set_status(self, text: str):
         if hasattr(self.statusbar, "set_status"):
             self.statusbar.set_status(text)
+
+    def rename_team(self, team_key: str):
+        if team_key not in self.team_names:
+            self.set_status(f"Unknown Team Key: {team_key}")
+            return
+        current = self.team_names[team_key].get()
+        new_name = rename_team_dialog(self, current)
+        if not new_name or new_name == current: 
+            return
+        self.team_names[team_key].set(new_name)
+        if hasattr(self.sidebar, "refresh_team_dropdown"):
+            self.sidebar.refresh_team_dropdown()
+        self.set_status(f"Team Renamed: {current} -> {new_name}")
      
 
 class TopBar(ttk.Frame):
@@ -305,7 +318,12 @@ class SideBar(ttk.Frame):
             self.player_buttons.append(b)
 
     def on_team_change(self):
-        self.refresh_player_list()
+        labels = self.labels()
+        label = self.team_dropdown_var.get()
+        key = next((k for k, v in labels.items() if v == label), "home")
+        if key != self.controller.selected_team_key.get():
+            self.controller.selected_team_key.set(key)
+            self.refresh_player_list()
 
     def add_player_dialog(self):
         team = self.selected_team.get()
@@ -331,22 +349,28 @@ class SideBar(ttk.Frame):
             pass
         self.refresh_player_list()
 
-    def rename_team(self, team_key: str):
-        if team_key not in self.team_names:
-            self.set_status(f"Unknown Team Key: {team_key}")
-            return
-        
-        current = self.team_names[team_key].get()
-        new_name = rename_team_dialog(self, current)
-        if not new_name or new_name == current:
-            return
-        
-        self.team_names[team_key].set(new_name)
-        
-        if hasattr(self.sidebar, "refresh_team_dropdown"):
-            self.sidebar.refresh_team_dropdown()
-            
-        self.set_status(f"Team Renamed: {current} -> {new_name}")
+    def labels(self):
+        tn = self.controller.team_names
+        return {"home": tn["home"].get(), "away": tn["away"].get()}
+    
+    def refresh_team_dropdown(self):
+        labels = self.labels()
+        menu = self.team_dropdown["menu"]
+        menu.delete(0, "end")
+        for key in self.controller.team_order:
+            label=labels[key]
+            menu.add_command(label=label, command=tk.setit(self.team_dropdown_var, label))
+        current_key = self.self.controller.selected_team_key.get()
+        self.team_dropdown_var.set(labels[current_key])
+
+    def rename_team(self):
+        labels=self.labels()
+        current_label=self.team_dropdown_var.get()
+        team_key=next((k for k, v in labels.items() if v == current_label), "home")
+        if hasattr(self.controller, "rename_team"):
+            self.controller.rename_team(team_key)
+        self.refresh_team_dropdown()
+                
 
 
 class StatusBar(ttk.Frame): 
