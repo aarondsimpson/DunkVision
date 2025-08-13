@@ -7,7 +7,7 @@ from PIL import ImageGrab
 
 from .court_canvas import ScreenImage
 from .player_dialogs import confirm, info, error
-from .modals import add_player_dialog
+from .modals import add_player_dialog, rename_team_dialog
 
 BAR_HEIGHT = 44
 SIDE_WIDTH = 220
@@ -34,12 +34,23 @@ class CourtFrame(ttk.Frame):
         self.actions=[]
         self.redo_stack=[]
         self.data_points=[]
+        self.team_order=["My Team","Their Team"]
+        
+        self.team_names={
+            "My Team": tk.StringVar(value="My Team"),
+            "Their Team": tk.StringVar(value="Their Team")
+        }
+        self.rosters={
+            "My Team": ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"],
+            "Their Team": ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"],
+        }
+        self.selected_team_key=tk.StringVar(value="My Team")
 
         #Layout Scaffold
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
-        #Wdiget Scaffold
+        #Widget Scaffold
         self.topbar=TopBar(
             self, 
             on_toggle_mode=self.toggle_mode,
@@ -243,6 +254,16 @@ class SideBar(ttk.Frame):
         self.configure(width = SIDE_WIDTH)
 
         #Team Selector
+        self.sidebar=SideBar(
+            self, controller=self,
+            team_order=self.team_order,
+            team_names=self.team_names,
+            rosters=self.rosters,
+            selected_team_key=self.selected_team_key,
+            on_rename_team=self.rename_team,
+        )
+        self.sidebar.grid(row=1, column=0, sticky="ns") 
+
         self.selected_team = tk.StringVar(value="My Team")
         team_dropdown = ttk.OptionMenu(
             self.sidebar,
@@ -258,8 +279,10 @@ class SideBar(ttk.Frame):
         self.player_list_frame.grid(row=1, column=0, sticky="nsew", pady=(10,10))
 
         #Add and Remove Buttons
-        ttk.Button(self, text="Add", command=self.add_player_dialog).grid(row=2, column=0, pady=5, sticky="ew")
-        ttk.Button(self, text="Remove", command=self.remove_selected_player).grid(row=3, column=0, pady=5, sticky="ew")
+        ttk.Button(self, text="Add", command=self.add_player_dialog).grid(row=2, column=0, padx=8, pady=(6,4), sticky="ew")
+        ttk.Button(self, text="Remove", command=self.remove_selected_player).grid(row=3, column=0, padx=8, pady=(0,8), sticky="ew")
+        ttk.Separator(self, orient="horizontal").grid(row=4, column=0, padx=8, pady=(0,6), sticky="ew")
+        ttk.Button(self, text="Rename Team", command=self.rename_team).grid(row=5, column=0, padx=9, pady=(0,10), sticky="ew")
 
         #Home and Away Rosters
         self.rosters={
@@ -280,7 +303,6 @@ class SideBar(ttk.Frame):
             b = ttk.Button(self.player_list_frame, text=role)
             b.pack(fill="x", padx=6, pady=2)
             self.player_buttons.append(b)
-
 
     def on_team_change(self):
         self.refresh_player_list()
@@ -308,6 +330,24 @@ class SideBar(ttk.Frame):
         except ValueError:
             pass
         self.refresh_player_list()
+
+    def rename_team(self, team_key: str):
+        if team_key not in self.team_names:
+            self.set_status(f"Unknown Team Key: {team_key}")
+            return
+        
+        current = self.team_names[team_key].get()
+        new_name = rename_team_dialog(self, current)
+        if not new_name or new_name == current:
+            return
+        
+        self.team_names[team_key].set(new_name)
+        
+        if hasattr(self.sidebar, "refresh_team_dropdown"):
+            self.sidebar.refresh_team_dropdown()
+            
+        self.set_status(f"Team Renamed: {current} -> {new_name}")
+
 
 class StatusBar(ttk.Frame): 
     def __init__(self, parent): 
