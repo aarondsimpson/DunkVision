@@ -2,10 +2,12 @@ import json
 import csv
 import tkinter as tk
 
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog
 from PIL import ImageGrab
 
 from src.user_interface.court_canvas import ScreenImage
+from src.user_interface.player_dialogs import confirm, info
+from src.user_interface.modals import add_player_dialog
 
 BAR_HEIGHT = 44
 SIDE_WIDTH = 220
@@ -86,13 +88,12 @@ class CourtFrame(ttk.Frame):
         self.statusbar.configure(style="StatusBar.TFrame")
 
     def home_button(self):
-        go_home=getattr(self.controller, "go_home", None) or getattr(self.controller, "show_start", None)
-        if callable(go_home):
-            go_home()
+        if confirm("confirm_home",parent=self):
+            if hasattr(self.cotroller, "go home") and callable(self.controller.go_home):
+                self.controller.go_home()
         else:
-            messagebox.showinfo("Home", "Hook up controller.go_home() to enable this.")
-        self.set_status("Home")
-
+            info("Not Wired", self, "Home navigation is not wired yet.")
+        
     def undo_action(self):
         if not self.actions:
             self.set_status("Nothing to Undo.")
@@ -117,6 +118,8 @@ class CourtFrame(ttk.Frame):
         self.set_status("Save game (stub).") #Requires build out when saving persistence format is built
 
     def reset_game(self):
+        if not confirm("confirm_reset", self):
+            return    
         self.actions.clear()
         self.redo_stack.clear()
         self.data_points.clear()
@@ -283,11 +286,28 @@ class SideBar(ttk.Frame):
         self.refresh_player_list()
 
     def add_player_dialog(self):
-        messagebox.showinfo("Add Player", "Add Player dialog not implemented")
-
+        team = self.selected_team.get()
+        positions = self.roster.get(team, [])
+        res = add_player_dialog(self, team, positions)
+        if not res:
+            return
+        self.rosters[team].append(res["name"])
+        self.refresh_player_list()
+        if hasattr(self.controller, "set_status"):
+            self.controller.set_status(f"Added {res['name']} ({res['position']}) to {team}")
+            
     def remove_selected_player(self):
-        messagebox.showingo("Remove Player", "Remove Player dialog not implemented")
-
+        if not self.selected_player_button:
+            return
+        name = self.selected_player_button.cget("text")
+        team = self.selected_team.get()
+        if not confirm("confirm_remove_player", self, name=name, team=team):
+            return
+        try:
+            self.rosters[team].remove(name)
+        except ValueError:
+            pass
+        self.refresh_player_list()
 
 class StatusBar(ttk.Frame): 
     def __init__(self, parent): 

@@ -26,7 +26,6 @@ class DunkVisionApp(tk.Tk):
         self.prevous_state=self.state()
         self.bind("<Configure>", self.on_configure_state_change)
 
-
         self.set_app_icon()
         self.protocol("WM_DELETE_WINDOW", self.on_app_close)
         self.init_styles()

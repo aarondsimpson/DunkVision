@@ -1,28 +1,50 @@
-from tkinter import messagebox
+from __future__ import annotations
+from tkinter import messagebox, Toplevel, ttk, StringVar, Misc, Entry, Frame
 
-MESSAGES = {
+MESSAGES = dict[str, dict[str, str]] = {
     "quit": {
         "title": "Quit", 
         "message": "Unsaved work will be lost. Quit?"
+    },
+    "confirm_home": {
+        "title": "Return Home?",
+        "message": "Unsaved work will be lost. Return home?"
+    },
+    "confirm_reset": {
+        "title": "Reset Game?",
+        "message": "Reset the Court"
+    },
+    "confirm_end": {
+        "title": "End Game?",
+        "message": "End the Game?"
+    },
+    "confirm_remove_player": {
+        "title": "Remove Player?",
+        "message": "Remove {name} from {team}?"
     },
 }
 #Will add more as they appear
 #Will add "load" section for load-related messages
 #Will add "save" section for save-related messages 
 
+def resolve(key_or_title: str, message: str | None, **fmt) -> tuple[str, str]:
+    if message is None and key_or_title in MESSAGES:
+        m = MESSAGES[key_or_title]
+        title = m["title"].format(**fmt)
+        text = m["message"].format(**fmt)
+        return title, text
+    title = key_or_title.format(**fmt)
+    text = (message or "").format(**fmt)
+    return title, text
+    
+def confirm(key_or_title: str, parent: Misc | None=None, message: str | None=None, **fmt) -> None:
+    title, text = resolve(key_or_title, message, **fmt)
+    return messagebox.askyesno(title, text, parent=parent)
 
-#For Yes/No confirmations based on a key from the messages dictionary
-def confirm_action(key: str) -> bool: 
-    message = MESSAGES[key]
-    return messagebox.askyesno(message["title"], message["message"])
+def info(key_or_title: str, parent: Misc | None=None, message: str | None=None, **fmt) -> None: 
+    title, text = resolve(key_or_title, message, **fmt)
+    messagebox.showinfo(title, text, parent=parent)
 
-#Informational dialog that passes a custom title and a message, or a known key and 'none'
-def information(key_or_title: str, message: str | None = None):
-    if message is None:
-        message = MESSAGES[key_or_title]
-        return messagebox.showinfo(message["title"], message["message"])
-    return messagebox.showinfo(key_or_title, message)
-
-#Error dialog that passes the error title and message
-def error(title: str, message: str):
-    return messagebox.showerror(title, message)
+def error(key_or_title: str, parent: Misc | None=None, message: str | None=None, **fmt) -> None: 
+    title, text = resolve(key_or_title, message, **fmt)
+    messagebox.showerror(title, text, parent=parent)
