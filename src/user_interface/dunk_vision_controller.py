@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox
 
 from src.config import ICON_PNG, ICON_ICO
 from src.user_interface.court_canvas import StartScreen, CourtScreen
-from src.user_interface.court_frames import CourtFrame
+from src.user_interface.court_frames import TopBar, SideBar, StatusBar
 from src.user_interface.player_dialogs import confirm_action
 
 class DunkVisionApp(tk.Tk):
@@ -15,7 +15,7 @@ class DunkVisionApp(tk.Tk):
 
         self.set_app_icon()
         self.protocol("WM_DELETE_WINDOW", self.on_app_close)
-        self.init_styles
+        self.init_styles()
 
         self.option_add("*Button.Background", "#F3F5F7")
         self.option_add("*Button.Foreground", "#9DAFBF")
@@ -54,7 +54,7 @@ class DunkVisionApp(tk.Tk):
             if ICON_ICO.exists():
                 self.iconbitmap(str(ICON_ICO))
             if ICON_PNG.exists():
-                png = tk.PhtoImage(file = str(ICON_PNG))
+                png = tk.PhotoImage(file = str(ICON_PNG))
                 self.icon_reference = png 
                 self.iconphoto(True, png)
         except Exception as e:

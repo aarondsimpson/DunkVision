@@ -1,6 +1,5 @@
 import tkinter as tk 
 from tkinter import ttk, filedialog
-import pathlib as Path
 from PIL import Image, ImageTk
 from src.config import SCREEN_IMAGES_DIR
 
@@ -12,10 +11,10 @@ class ScreenImage(ttk.Frame):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.canvas = tk.Canvas(self, highlightthickness = 0, bd = 0, bg = "#111")
-        self.canvas.grid(row = 0, column = 0, sticky = "nsew")
-        self.grid_rowconfigure(0, weight = 1)
-        self.grid_columnconfigure(0, weight = 1)
+        self.canvas = tk.Canvas(self, highlightthickness=0, bd=0, bg="#111")
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
 
         self.images = {} #Key -> PIL.Image
         self.tkref = None
@@ -39,7 +38,7 @@ class ScreenImage(ttk.Frame):
 
     def image_draw(self):
         self.canvas.delete("all")
-        image = self.images.get(self.current)
+        image=self.images.get(self.current)
         if not image:
             return
         width, height = self.canvas.winfo_width(), self.canvas.winfo_height()
@@ -47,26 +46,32 @@ class ScreenImage(ttk.Frame):
             return 
         
         scale = min(width / NATIVE_WIDTH, height / NATIVE_HEIGHT)
-        d_width, d_height = int(NATIVE_WIDTH * scale), int(NATIVE_HEIGHT * scale)
+        d_width, d_height = int(NATIVE_WIDTH*scale), int(NATIVE_HEIGHT*scale)
         x, y = (width - d_width) // 2, (height - d_height) // 2
         resized = image.resize((d_width, d_height), Image.LANCZOS) 
         self.tkref = ImageTk.PhotoImage(resized)
-        self.canvas.create_image(x, y, anchor = "nw", image = self.tkref)
+        self.canvas.create_image(x, y, anchor="nw", image=self.tkref)
 
 
 class StartScreen(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller 
+        
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+        self.bg = ScreenImage(self)
+        self.bg.grid(row=0, column=0, sticky="nsew")
+        self.bg.show("start")
 
-        self.grid_rowconfigure(0, weight = 1)
-        self.grid_rowconfigure(1, weight = 0)
-        self.grid_rowconfigure(2, weight = 1)
-        self.grid_columnconfigure(0, weight = 1)
+        new_button = ttk.Button(self, text = "New", command = self.new_session)
+        load_button = ttk.Button(self, text = "Load", command = self.load_session)
 
+        new_button.place(relx=0.45, rely=0.62, anchor="center", width=120, height=40)
+        load_button.place(relx=0.60, rely=0.62, anchor="center", width=120, height=40)
 
     def new_session(self):
-        self.controller.show_frame("CourtScreen")
+        self.controller.show_court_screen() 
 
 
     def load_session(self):
@@ -74,9 +79,10 @@ class StartScreen(ttk.Frame):
             title = "Load a Dunk Vision Save",
             filetypes = [("Dunk Vision Save", "*.dvjson"), ("All Files", "*.*")]
         )
-        if path: 
+        """if path: 
             #CODE THIS LATER WHEN SAVE AND LOAD FUNCTIONS ARE BUILT
             self.controller.show_frame("CourtFrames")
+            """
 
 class CourtScreen(ttk.Frame):
     def __init__(self, parent, controller):
@@ -85,9 +91,14 @@ class CourtScreen(ttk.Frame):
 
         self.grid_rowconfigure(0, weight = 1)
         self.grid_columnconfigure(0, weight = 1)
-        court_label = ttk.Label(self, text = "Placeholder")
-        court_label.grid(row = 0, grid = 0, padx = 20, pady = (60, 20), sticky = "nw")
 
-        back_button = ttk.Button(self, text = "Home", command = lambda: controller.show_frame("StartScreen"))
-        back_button.grid(row = 0, column= 0, padx = 20, pady = (60, 20), sticky = "n")
+        self.bg = ScreenImage(self)
+        self.bg.grid(row = 0, column = 0, sticky = "nsew")
+        self.bg.show("court_dark")
+
+        court_label = ttk.Label(self, text="Placeholder")
+        court_label.grid(row=0, column=0, padx=20, pady=(60, 20), sticky = "nw")
+
+        back_button = ttk.Button(self, text = "Home", command=self.controller.show_start_screen)
+        back_button.grid(row = 0, column= 0, padx = 20, pady=(60, 20), sticky = "n")
 
