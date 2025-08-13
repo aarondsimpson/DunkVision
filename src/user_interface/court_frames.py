@@ -12,8 +12,14 @@ BAR_HEIGHT = 44
 SIDE_WIDTH = 220
 
 MODE = {
-    "light": {"image": "court_light", "bg": "#BCA382"},
-    "dark": {"image": "court_dark", "bg": "#7C90C5"}
+    "light": {
+        "image": "court_light", 
+        "bg": "#BCA382",
+        "list": "#BCA382"},
+    "dark": {
+        "image": "court_dark", 
+        "bg": "#7C90C5",
+        "list": "#7C90C5"}
     }
 
 class CourtFrame(ttk.Frame):
@@ -74,6 +80,7 @@ class CourtFrame(ttk.Frame):
         style.configure("TopBar.TFrame", background = cfg["bg"])
         style.configure("SideBar.TFrame", background = cfg["bg"])
         style.configure("StatusBar.TFrame", background = cfg["bg"])
+        style.configure("PlayerList.TFrame", background = cfg["list"])
 
         self.topbar.configure(style="TopBar.Frame")
         self.sidebar.configure(style="SideBar.TFrame")
@@ -245,7 +252,7 @@ class SideBar(ttk.Frame):
         team_dropdown.grid(row=0, column=0, pady=(10, 5), sticky = "ew")
         
         #Player List Container
-        self.player_list_frame = tk.Frame(self.sidebar, bg="#BCA382")
+        self.player_list_frame = ttk.Frame(self,style="PlayerList.TFrame")
         self.player_list_frame.grid(row=1, column=0, sticky="nsew", pady=(10,10))
 
         #Add and Remove Buttons

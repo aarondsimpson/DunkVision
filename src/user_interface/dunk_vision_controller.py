@@ -2,8 +2,8 @@ import tkinter as tk
 from tkinter import ttk
 
 from src.config import ICON_PNG, ICON_ICO
-from src.user_interface.court_canvas import StartScreen, CourtScreen, ScreenImage
-from src.user_interface.court_frames import TopBar, SideBar, StatusBar, CourtFrame
+from src.user_interface.court_canvas import StartScreen, CourtScreen
+from src.user_interface.court_frames import TopBar, SideBar, StatusBar
 from src.user_interface.player_dialogs import confirm_action
 
 class DunkVisionApp(tk.Tk):
@@ -75,7 +75,7 @@ class DunkVisionApp(tk.Tk):
             print(f"[Icon Warning] {e}")
 
 
-    def on_configure_start_change(self, event):
+    def on_configure_start_change(self, _):
         cur=self.state()
         if cur != self.previous_state:
             if self.prevous_state == "zoomed" and cur == "normal":
