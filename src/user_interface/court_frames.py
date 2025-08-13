@@ -49,6 +49,7 @@ class CourtFrame(ttk.Frame):
         #Layout Scaffold
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(2, weight=0)
 
         #Widget Scaffold
         self.topbar=TopBar(
@@ -74,10 +75,15 @@ class CourtFrame(ttk.Frame):
         self.center_canvas=ScreenImage(self)
         self.center_canvas.grid(row=1, column=1, sticky="nsew")
         
+        self.databar = DataBar(self, controller=self)
+        self.databar.grid(row=1, column=2, sticky="ns")
+
         self.statusbar=StatusBar(self)
         self.statusbar.grid(row=2, column=0, columnspan=3, sticky="ew")
 
-        self.update_mode()      
+        self.update_mode()
+        if hasattr(self, "refresh stats"):
+            self.refresh_stats()   
 
     def toggle_mode(self):
         self.mode="dark" if self.mode == "light" else "light"
@@ -93,10 +99,12 @@ class CourtFrame(ttk.Frame):
         style.configure("SideBar.TFrame", background = cfg["bg"])
         style.configure("StatusBar.TFrame", background = cfg["bg"])
         style.configure("PlayerList.TFrame", background = cfg["list"])
+        style.configure("DataBar.TFrame", background = cfg["bg"])
 
         self.topbar.configure(style="TopBar.TFrame")
         self.sidebar.configure(style="SideBar.TFrame")
         self.statusbar.configure(style="StatusBar.TFrame")
+        self.databar.configure(style="DataBar.TFrame")
 
     def home_button(self):
         if confirm("confirm_home",parent=self):
@@ -135,6 +143,7 @@ class CourtFrame(ttk.Frame):
         self.redo_stack.clear()
         self.data_points.clear()
         self.center_canvas.show(MODE[self.mode]["image"])
+        self.refresh_stats()
         self.set_status("Reset.")
                    
     def end_game(self):
@@ -206,6 +215,10 @@ class CourtFrame(ttk.Frame):
         if hasattr(self.sidebar, "refresh_team_dropdown"):
             self.sidebar.refresh_team_dropdown()
         self.set_status(f"Team Renamed: {current} -> {new_name}")
+
+    def refresh_stats(self):
+        if hasattr(self, "databar") and hasattr(self.databar, "refresh_from_points"):
+            self.databar.refresh_from_points(self.data_points)
      
 
 class TopBar(ttk.Frame):
@@ -417,3 +430,81 @@ class StatusBar(ttk.Frame):
         self.message_variable.set(text)
 
                          
+class DataBar(ttk.Frame):
+    def __init__(self, parent, controller=None):
+        super().__init__(parent)
+        self.controller = controller
+        self.grid_propagate(False)
+        self.configure(width=SIDE_WIDTH)
+
+        self.grid_columnconfigure(0, weight=1)
+
+        ttk.Label(self, text="Stats", anchor="center").grid(
+            row=0, column=0, sticky="ew", padx=8, pady=(10,6)
+        )
+        self.home_section = self._make_team_selection(self, team_key="home", row=1)
+        self.away_section = self._make_team_selection(self, team_key="away", row=2)
+
+        for key, name_var in self.controller.team_names.items():
+            name_var.trace_add("write", lambda *_, k=key: self._sync_heading(k))
+        
+        self._sync_heading("home")
+        self.sync_heading("away")
+
+        self.refresh_from_points(self.controller.data_points)
+
+    def _make_team_section(self, parent, team_key: str, row: int):
+        box = ttk.LabelFrame(parent, text="", padding = 8)
+        box.grid(row=row, column=0, sticky="nsew", padx=8, pady=(0,8))
+        box.grid_columnconfigure(1, weight=1)
+
+        vars = { #Add more as development continues
+            "shots": tk.IntVar(value=0),
+            "made": tk.IntVar(value=0),
+            "missed": tk.IntVar(value=0),
+            "airball": tk.IntVar(value=0)
+        }
+        vars["heading"] = tk.StringVar(value="")
+
+        box.configure(labelwidget=ttk.Label(box, textvariable=vars["heading"]))
+
+        r=0
+        ttk.Label(box, text="Shots:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["shots"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Made:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["made"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Missed:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["missed"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Airball:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["airball"]).grid(row=r, column=1, sticky="e"); r+=1
+
+        if not hasattr(self, "_team_vars"):
+            self._team_vars = {}
+        self._team_vars[team_key] = vars
+        return box
+    
+    def _sync_heading(self, team_key: str):
+        team_name = self.controller.team_names[team_key].get()
+        self._team_vars[team_key]["heading"].set(f"{team_name} Stats")
+
+    def refresh_from_points(self, points:list[dict]):
+        stats={"home": {"shots": 0, "made": 0}, "away": {"shots": 0, "made": 0}}
+        for p in points or []:
+            team = p.get("team")
+            if team not in stats:
+                continue
+            stats[team]["shots"] += 1
+            if p.get("made"):
+                stats[team]["made"] += 1
+        for team_key in ("home", "away"):
+            shots = stats[team_key]["shots"]
+            made = stats[team_key]["made"]
+            missed = stats[team_key]["missed"]
+            airball = stats[team_key]["airball"]
+            pct = f"{made / shots (100):.1f}%" if shots else "-"
+
+            vars = self._team_vars[team_key]
+            vars["shots"].set(shots)
+            vars["made"].set(made)
+            vars["missed"].set(missed)
+            vars["airball"].set(airball)
+            vars["pct"].set(pct)
+
+
+
