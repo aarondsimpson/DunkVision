@@ -7,8 +7,6 @@ NATIVE_WIDTH = 1366
 NATIVE_HEIGHT = 768
 
 class ScreenImage(ttk.Frame):
-    IMAGE_FILE = None #Set in subclasses
-
     def __init__(self, parent):
         super().__init__(parent)
         self.canvas = tk.Canvas(self, highlightthickness=0, bd=0, bg="#111")
@@ -33,7 +31,7 @@ class ScreenImage(ttk.Frame):
             self.images[key] = Image.open(path).convert("RGBA")
     
     def show(self, key: str):
-        self.current = key
+        self.current=key
         self.image_draw()
 
     def image_draw(self):
@@ -41,15 +39,15 @@ class ScreenImage(ttk.Frame):
         image=self.images.get(self.current)
         if not image:
             return
-        width, height = self.canvas.winfo_width(), self.canvas.winfo_height()
+        width, height=self.canvas.winfo_width(), self.canvas.winfo_height()
         if width < 2 or height <2:
             return 
         
-        scale = min(width / NATIVE_WIDTH, height / NATIVE_HEIGHT)
-        d_width, d_height = int(NATIVE_WIDTH*scale), int(NATIVE_HEIGHT*scale)
-        x, y = (width - d_width) // 2, (height - d_height) // 2
-        resized = image.resize((d_width, d_height), Image.LANCZOS) 
-        self.tkref = ImageTk.PhotoImage(resized)
+        scale=min(width / NATIVE_WIDTH, height / NATIVE_HEIGHT)
+        d_width, d_height=int(NATIVE_WIDTH*scale), int(NATIVE_HEIGHT*scale)
+        x, y=(width - d_width) // 2, (height - d_height) // 2
+        resized=image.resize((d_width, d_height), Image.LANCZOS) 
+        self.tkref=ImageTk.PhotoImage(resized)
         self.canvas.create_image(x, y, anchor="nw", image=self.tkref)
 
 
@@ -67,8 +65,8 @@ class StartScreen(ttk.Frame):
         new_button = ttk.Button(self, text = "New", command = self.new_session)
         load_button = ttk.Button(self, text = "Load", command = self.load_session)
 
-        new_button.place(relx=0.45, rely=0.62, anchor="center", width=120, height=40)
-        load_button.place(relx=0.60, rely=0.62, anchor="center", width=120, height=40)
+        new_button.place(relx=0.45, rely=0.62, anchor="center", width=120, height=40) #Later replace with image overlay
+        load_button.place(relx=0.60, rely=0.62, anchor="center", width=120, height=40)#Later replace with image overlay
 
     def new_session(self):
         self.controller.show_court_screen() 
@@ -89,9 +87,8 @@ class CourtScreen(ttk.Frame):
         super().__init__(parent)
         self.controller = controller
 
-        self.grid_rowconfigure(0, weight = 1)
-        self.grid_columnconfigure(0, weight = 1)
-
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
         self.bg = ScreenImage(self)
         self.bg.grid(row = 0, column = 0, sticky = "nsew")
         self.bg.show("court_dark")
@@ -100,5 +97,5 @@ class CourtScreen(ttk.Frame):
         court_label.grid(row=0, column=0, padx=20, pady=(60, 20), sticky = "nw")
 
         back_button = ttk.Button(self, text = "Home", command=self.controller.show_start_screen)
-        back_button.grid(row = 0, column= 0, padx = 20, pady=(60, 20), sticky = "n")
+        back_button.grid(row=0, column=0, padx=20, pady=(60, 20), sticky="n")
 

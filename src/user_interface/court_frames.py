@@ -6,25 +6,25 @@ BAR_HEIGHT = 44
 SIDE_WIDTH = 220
 
 class CourtFrame(ttk.Frame):
-    def __init__(self, parent, controller = None):
+    def __init__(self, parent, controller=None):
         super().__init__(parent)
-        self.controller = controller
+        self.controller=controller
         
-        self.grid_rowconfigure(1, weight = 1)
-        self.grid_columnconfigure(1, weight = 1)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(1, weight=1)
 
-        self.topbar = TopBar(self, controller = self)
-        self.topbar.grid(row = 0, column = 0, columnspan = 3, sticky = "ew")
+        self.topbar=TopBar(self, controller=self)
+        self.topbar.grid(row=0, column=0, columnspan=3, sticky="ew")
 
-        self.sidebar = SideBar(self, controller = self)
-        self.sidebar.grid(row = 1, column = 0, sticky = "ns")
+        self.sidebar=SideBar(self, controller=self)
+        self.sidebar.grid(row=1, column=0, sticky="ns")
 
-        self.center_canvas = ScreenImage(self)
-        self.center_canvas.grid(row = 1, column = 1, sticky = "nsew")
-        self.mode = "dark"
+        self.center_canvas=ScreenImage(self)
+        self.center_canvas.grid(row=1, column=1, sticky="nsew")
+        self.mode="dark"
 
-        self.statusbar = StatusBar(self)
-        self.statusbar.grid(row = 2, column = 0, columnspan = 3, sticky = "ew")
+        self.statusbar=StatusBar(self)
+        self.statusbar.grid(row=2, column=0, columnspan=3, sticky="ew")
 
         self.center_canvas.show("court_dark")
 
@@ -54,19 +54,19 @@ class TopBar(ttk.Frame):
         self.grid_propagate(False)
         self.configure(height = BAR_HEIGHT)
 
-        self.grid_columnconfigure(0, weight= 0)
-        self.grid_columnconfigure(1, weight= 1)
-        self.grid_columnconfigure(2, weight= 0)
+        self.grid_columnconfigure(0, weight=0)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(2, weight=0)
 
         self.title = ttk.Label(self, text="Dunk Vision")
-        self.title.grid(row = 0, column= 0, padx = 10, pady = 8, sticky = "w")
+        self.title.grid(row=0, column=0, padx=10, pady=8, sticky="w")
 
-        self.theme_btn = ttk.Button(
+        self.theme_btn=ttk.Button(
             self, 
-            text = "Theme",
-            command = self.controller.toggle_mode if hasattr(self.controller, "toggle_mode") else lambda: None
+            text="Theme",
+            command=self.controller.toggle_mode if hasattr(self.controller, "toggle_mode") else lambda: None
         )
-        self.theme_btn.grid(row = 0, column= 2, padx = 10, pady = 8, sticky = "e")
+        self.theme_btn.grid(row=0, column=2, padx=10, pady=8, sticky="e")
 
 class SideBar(ttk.Frame):
     def __init__(self, parent, controller = None): 
@@ -78,19 +78,6 @@ class SideBar(ttk.Frame):
 
         ttk.Button(self, text = "Light/Dark", command = getattr(controller, "toggle_mode", lambda: None)).grid(
             row = 0, column = 0, padx = 10, pady = (12, 6), sticky = "ew"
-        )
-
-        ttk.Button(
-            self, text = "Start Screen", 
-            command = lambda: getattr(self.controller, "center_canvas", None)
-            and self.controller.center_canvas.show("start")
-            ).grid(row = 1, column = 0, padx = 10, pady = 6, sticky = "ew"
-        )
-
-        ttk.Button(self, text = "Court Screen", 
-                   command = lambda: getattr(self.controller, "center_canvas",None)
-                    and self.controller.center_canvas.show("court_dark")
-                    ).grid(row = 2, column = 0, padx = 10, pady = 6, sticky = "ew"
         )
 
         self.grid_rowconfigure(99, weight = 1)
