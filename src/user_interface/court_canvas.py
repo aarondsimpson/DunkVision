@@ -71,7 +71,6 @@ class StartScreen(ttk.Frame):
     def new_session(self):
         self.controller.show_court_screen() 
 
-
     def load_session(self):
         path = filedialog.askopenfilename(
             title = "Load a Dunk Vision Save",
@@ -95,7 +94,3 @@ class CourtScreen(ttk.Frame):
 
         court_label = ttk.Label(self, text="Placeholder")
         court_label.grid(row=0, column=0, padx=20, pady=(60, 20), sticky = "nw")
-
-        back_button = ttk.Button(self, text = "Home", command=self.controller.show_start_screen)
-        back_button.grid(row=0, column=0, padx=20, pady=(60, 20), sticky="n")
-
