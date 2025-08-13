@@ -100,7 +100,7 @@ class CourtFrame(ttk.Frame):
 
     def home_button(self):
         if confirm("confirm_home",parent=self):
-            if hasattr(self.cotroller, "go_home") and callable(self.controller.go_home):
+            if hasattr(self.controller, "go_home") and callable(self.controller.go_home):
                 self.controller.go_home()
             else:
                 info("Not Wired", self, "Home navigation is not wired yet.")
@@ -280,10 +280,10 @@ class SideBar(ttk.Frame):
         self.rowconfigure(2, weight=1)
 
         #Add and Remove Buttons
-        ttk.Button(self, text="Add", command=self.add_player_dialog).grid(row=2, column=0, padx=8, pady=(6,4), sticky="ew")
-        ttk.Button(self, text="Remove", command=self.remove_selected_player).grid(row=3, column=0, padx=8, pady=(0,8), sticky="ew")
-        ttk.Separator(self, orient="horizontal").grid(row=4, column=0, padx=8, pady=(0,6), sticky="ew")
-        ttk.Button(self, text="Rename Team", command=self.rename_team).grid(row=5, column=0, padx=9, pady=(0,10), sticky="ew")
+        ttk.Button(self, text="Add", command=self.add_player_dialog).grid(row=3, column=0, padx=8, pady=(6,4), sticky="ew")
+        ttk.Button(self, text="Remove", command=self.remove_selected_player).grid(row=4, column=0, padx=8, pady=(0,8), sticky="ew")
+        ttk.Separator(self, orient="horizontal").grid(row=5, column=0, padx=8, pady=(0,6), sticky="ew")
+        ttk.Button(self, text="Rename Team", command=self.rename_team).grid(row=6, column=0, padx=9, pady=(0,10), sticky="ew")
 
         self.player_buttons = []
         self.selected_player_button = None #track selection
@@ -315,20 +315,22 @@ class SideBar(ttk.Frame):
     def refresh_player_list(self):
         for w in self.player_list_frame.winfo_children():
             w.destroy()
-        for role in self.rosters[self.selected_team.get()]:
-            b = ttk.Button(self.player_list_frame, text=role)
+        key = self.controller.selected_team_key.get()
+        for role_or_name in self.controller.rosters[key]:
+            b = ttk.Button(self.player_list_frame, text=role_or_name)
             b.pack(fill="x", padx=6, pady=2)
             self.player_buttons.append(b)
 
     #Button Handlers
 
     def add_player_dialog(self):
-        team = self.selected_team.get()
-        positions = self.roster.get(team, [])
-        res = add_player_dialog(self, team, positions)
+        key = self.controller.selected_team_key.get()
+        team_label = self.controller.team_names[key].get()
+        positions = ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"]
+        res = add_player_dialog(self, team_label, positions)
         if not res:
             return
-        self.rosters[team].append(res["name"])
+        self.controller.rosters[key].append(res["name"])
         self.refresh_player_list()
         if hasattr(self.controller, "set_status"):
             self.controller.set_status(f"Added {res['name']} ({res['position']}) to {team}")
@@ -337,16 +339,16 @@ class SideBar(ttk.Frame):
         if not self.selected_player_button:
             return
         name = self.selected_player_button.cget("text")
-        team = self.selected_team.get()
-        if not confirm("confirm_remove_player", self, name=name, team=team):
+        key = self.controller.selected_team_key.get()
+        team_label = self.controller.team_names[key].get()
+        if not confirm("confirm_remove_player", self, name=name, team=team_label):
             return
         try:
-            self.rosters[team].remove(name)
+            self.controller.rosters[key].remove(name)
         except ValueError:
             pass
         self.refresh_player_list()
   
-
     def rename_team(self):
         labels=self.labels()
         current_label=self.team_dropdown_var.get()
