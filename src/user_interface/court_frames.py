@@ -58,13 +58,13 @@ class TopBar(ttk.Frame):
         self.grid_columnconfigure(1, weight= 1)
         self.grid_columnconfigure(2, weight= 0)
 
-        self.title = ttk.Label(self, text = "Dunk Vision")
+        self.title = ttk.Label(self, text="Dunk Vision")
         self.title.grid(row = 0, column= 0, padx = 10, pady = 8, sticky = "w")
 
         self.theme_btn = ttk.Button(
             self, 
             text = "Theme",
-            command = self.controller.toggle_mode if hasattr(self.controller, "toggle_mode") else lambda: None,
+            command = self.controller.toggle_mode if hasattr(self.controller, "toggle_mode") else lambda: None
         )
         self.theme_btn.grid(row = 0, column= 2, padx = 10, pady = 8, sticky = "e")
 

@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from src.config import ICON_PNG, ICON_ICO
-from src.user_interface.court_canvas import StartScreen, CourtScreen
+from src.user_interface.court_canvas import StartScreen, CourtScreen, ScreenImage
 from src.user_interface.court_frames import TopBar, SideBar, StatusBar
 from src.user_interface.player_dialogs import confirm_action
 
