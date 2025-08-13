@@ -76,7 +76,8 @@ class CourtFrame(ttk.Frame):
         
         self.statusbar=StatusBar(self)
         self.statusbar.grid(row=2, column=0, columnspan=3, sticky="ew")
-      
+
+        self.update_mode()      
 
     def toggle_mode(self):
         self.mode="dark" if self.mode == "light" else "light"
@@ -85,7 +86,6 @@ class CourtFrame(ttk.Frame):
         
     def update_mode(self):
         cfg = MODE[self.mode]
-
         self.center_canvas.show(cfg["image"])
 
         style = ttk.Style(self)
@@ -94,16 +94,16 @@ class CourtFrame(ttk.Frame):
         style.configure("StatusBar.TFrame", background = cfg["bg"])
         style.configure("PlayerList.TFrame", background = cfg["list"])
 
-        self.topbar.configure(style="TopBar.Frame")
+        self.topbar.configure(style="TopBar.TFrame")
         self.sidebar.configure(style="SideBar.TFrame")
         self.statusbar.configure(style="StatusBar.TFrame")
 
     def home_button(self):
         if confirm("confirm_home",parent=self):
-            if hasattr(self.cotroller, "go home") and callable(self.controller.go_home):
+            if hasattr(self.cotroller, "go_home") and callable(self.controller.go_home):
                 self.controller.go_home()
-        else:
-            info("Not Wired", self, "Home navigation is not wired yet.")
+            else:
+                info("Not Wired", self, "Home navigation is not wired yet.")
         
     def undo_action(self):
         if not self.actions:
@@ -158,7 +158,7 @@ class CourtFrame(ttk.Frame):
         self.set_status(f"Image Exported: {path}")
     
     def export_json(self):
-        path = filedialog.asksaveasfilnename(
+        path = filedialog.asksaveasfilename(
             defaultextension=".json",
             filetypes=[("JSON", "*.json")],
             title="Export Data (JSON)",
@@ -267,29 +267,17 @@ class SideBar(ttk.Frame):
         self.configure(width = SIDE_WIDTH)
 
         #Team Selector
-        self.sidebar=SideBar(
-            self, controller=self,
-            team_order=self.team_order,
-            team_names=self.team_names,
-            rosters=self.rosters,
-            selected_team_key=self.selected_team_key,
-            on_rename_team=self.rename_team,
-        )
-        self.sidebar.grid(row=1, column=0, sticky="ns") 
-
-        self.selected_team = tk.StringVar(value="My Team")
-        team_dropdown = ttk.OptionMenu(
-            self.sidebar,
-            self.selected_team,
-            "My Team", 
-            "My Team",
-            "Their Team"
-        )
-        team_dropdown.grid(row=0, column=0, pady=(10, 5), sticky = "ew")
+        ttk.Label(self, text="Team").grid(row=0, column=0, sticky="w", padx=8, pady=(10,2))
+        self.team_dropdown_var = tk.StringVar()
+        self.team_dropdown = ttk.OptionMenu(self, self.team_dropdown_var, "")
+        self.team_dropdown.grid(row=1, column=0, sticky="ew", padx=8)
+        self.refresh_team_dropdown()
+        self.team_dropdown_var.trace_add("write", lambda *_: self.on_team_change())
         
         #Player List Container
         self.player_list_frame = ttk.Frame(self,style="PlayerList.TFrame")
-        self.player_list_frame.grid(row=1, column=0, sticky="nsew", pady=(10,10))
+        self.player_list_frame.grid(row=2, column=0, sticky="nsew", padx=8, pady=(8,10))
+        self.rowconfigure(2, weight=1)
 
         #Add and Remove Buttons
         ttk.Button(self, text="Add", command=self.add_player_dialog).grid(row=2, column=0, padx=8, pady=(6,4), sticky="ew")
@@ -297,25 +285,24 @@ class SideBar(ttk.Frame):
         ttk.Separator(self, orient="horizontal").grid(row=4, column=0, padx=8, pady=(0,6), sticky="ew")
         ttk.Button(self, text="Rename Team", command=self.rename_team).grid(row=5, column=0, padx=9, pady=(0,10), sticky="ew")
 
-        #Home and Away Rosters
-        self.rosters={
-            "My Team": ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"],
-            "Their Team":["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"],
-        }
         self.player_buttons = []
         self.selected_player_button = None #track selection
-
-        #Populate Initial List and Team Switch 
-        self.selected_team.trace_add("write", lambda *_: self.on_team_change())
-        self.refresh_player_list()
         
-    def refresh_player_list(self):
-        for w in self.player_list_frame.winfo_children():
-            w.destroy()
-        for role in self.rosters[self.selected_team.get()]:
-            b = ttk.Button(self.player_list_frame, text=role)
-            b.pack(fill="x", padx=6, pady=2)
-            self.player_buttons.append(b)
+    #Helper Functions 
+
+    def labels(self):
+        tn = self.controller.team_names
+        return {"home": tn["home"].get(), "away": tn["away"].get()}
+    
+    def refresh_team_dropdown(self):
+        labels = self.labels()
+        menu = self.team_dropdown["menu"]
+        menu.delete(0, "end")
+        for key in self.controller.team_order:
+            label=labels[key]
+            menu.add_command(label=label, command=tk.setit(self.team_dropdown_var, label))
+        current_key = self.self.controller.selected_team_key.get()
+        self.team_dropdown_var.set(labels[current_key])
 
     def on_team_change(self):
         labels = self.labels()
@@ -324,6 +311,16 @@ class SideBar(ttk.Frame):
         if key != self.controller.selected_team_key.get():
             self.controller.selected_team_key.set(key)
             self.refresh_player_list()
+
+    def refresh_player_list(self):
+        for w in self.player_list_frame.winfo_children():
+            w.destroy()
+        for role in self.rosters[self.selected_team.get()]:
+            b = ttk.Button(self.player_list_frame, text=role)
+            b.pack(fill="x", padx=6, pady=2)
+            self.player_buttons.append(b)
+
+    #Button Handlers
 
     def add_player_dialog(self):
         team = self.selected_team.get()
@@ -348,20 +345,7 @@ class SideBar(ttk.Frame):
         except ValueError:
             pass
         self.refresh_player_list()
-
-    def labels(self):
-        tn = self.controller.team_names
-        return {"home": tn["home"].get(), "away": tn["away"].get()}
-    
-    def refresh_team_dropdown(self):
-        labels = self.labels()
-        menu = self.team_dropdown["menu"]
-        menu.delete(0, "end")
-        for key in self.controller.team_order:
-            label=labels[key]
-            menu.add_command(label=label, command=tk.setit(self.team_dropdown_var, label))
-        current_key = self.self.controller.selected_team_key.get()
-        self.team_dropdown_var.set(labels[current_key])
+  
 
     def rename_team(self):
         labels=self.labels()
