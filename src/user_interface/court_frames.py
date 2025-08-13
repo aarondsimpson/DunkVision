@@ -1,5 +1,11 @@
+import io 
+import json 
+import csv
 import tkinter as tk
-from tkinter import ttk
+
+from tkinter import ttk, filedialog, messagebox
+from PIL import ImageGrab
+
 from src.user_interface.court_canvas import ScreenImage
 
 BAR_HEIGHT = 44
@@ -15,10 +21,33 @@ class CourtFrame(ttk.Frame):
         super().__init__(parent)
         self.controller=controller
         
+        #State Definition 
+        self.mode="dark"
+        self.quarter=tk.StringVar(value="Q1")
+        self.actions=[]
+        self.redo_stack=[]
+        self.data_points=[]
+
+        #Layout Scaffold
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
-        self.topbar=TopBar(self, controller=self)
+        #Wdiget Scaffold
+        self.topbar=TopBar(
+            self, 
+            on_toggle_mode=self.toggle_mode,
+            on_home_button=self.home_button,
+            on_undo_action=self.undo_action,
+            on_redo_action=self.redo_action,
+            on_select_quarter=self.select_quarter,
+            on_save_game=self.save_game,
+            on_reset_game=self.reset_game,
+            on_end_game=self.end_game, 
+            on_export_image=self.export_image,
+            on_export_csv=self.export_csv,
+            on_export_json=self.export_json,
+            quarter_var=self.quarter, 
+            )
         self.topbar.grid(row=0, column=0, columnspan=3, sticky="ew")
 
         self.sidebar=SideBar(self, controller=self)
@@ -29,20 +58,19 @@ class CourtFrame(ttk.Frame):
         
         self.statusbar=StatusBar(self)
         self.statusbar.grid(row=2, column=0, columnspan=3, sticky="ew")
-
-        self.mode = "dark"
-        self.update_mode()
+      
 
     def toggle_mode(self):
         self.mode="dark" if self.mode == "light" else "light"
         self.update_mode()
-
+        self.set_status(f"Theme: {self.mode.title()}")
+        
     def update_mode(self):
         cfg = MODE[self.mode]
 
         self.center_canvas.show(cfg["image"])
 
-        style = ttk.Stle(self)
+        style = ttk.Style(self)
         style.configure("TopBar.TFrame", background = cfg["bg"])
         style.configure("SideBar.TFrame", background = cfg["bg"])
         style.configure("StatusBar.TFrame", background = cfg["bg"])
@@ -52,41 +80,112 @@ class CourtFrame(ttk.Frame):
         self.statusbar.configure(style="StatusBar.TFrame")
 
     def home_button(self):
-        pass
+        go_home=getattr(self.controller, "go_home", None) or getattr(self.controller, "show_start", None)
+        if callable(go_home):
+            go_home()
+        else:
+            messagebox.showinfo("Home", "Hook up controller.go_home() to enable this.")
+        self.set_status("Home")
 
     def undo_action(self):
-        pass
+        if not self.actions:
+            self.set_status("Nothing to Undo.")
+            return
+        action=self.actions.pop()
+        self.redo_stack.append(action)
+        self.set_status(f"Undid: {action.get('type', 'action')}") #Requires build out when canvas drawing is coded
 
     def redo_action(self):
-        pass
+        if not self.redo_stack:
+            self.set_status("Nothing to Redo.")
+            return 
+        action=self.redo_stack.pop()
+        self.actions.append(action)
+        self.set_status(f"Redid: {action.get('type', 'action')}") #Requires build out when canvas drawing is coded 
 
-    def select_quarter(self):
-        pass
-
+    def select_quarter(self, q:str):
+        self.quarter.set(q)
+        self.set_status(f"Quarter: {q}")
+                
     def save_game(self):
-        pass
+        self.set_status("Save game (stub).") #Requires build out when saving persistence format is built
 
     def reset_game(self):
-        pass
-
+        self.actions.clear()
+        self.redo_stack.clear()
+        self.data_points.clear()
+        self.center_canvas.show(MODE[self.mode]["image"])
+        self.set_status("Reset.")
+                   
     def end_game(self):
-        pass
+        self.set_status("End game (stub).") #Build confirmation dialog
 
     def export_image(self):
-        pass
+        path = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG Image", "*.png")],
+            title="Export Court Image",
+        )
+        if not path: 
+            return
+        c=self.center_canvas.canvas
+        x=c.winfo_rootx()
+        y=c.winfo_rooty()
+        w=x+c.winfo_width()
+        h=y+c.winfo_height()
+        img = ImageGrab.grab(bbox=(x, y, w, h))
+        img.save(path)
+        self.set_status(f"Image Exported: {path}")
     
     def export_json(self):
-        pass
+        path = filedialog.asksaveasfilnename(
+            defaultextension=".json",
+            filetypes=[("JSON", "*.json")],
+            title="Export Data (JSON)",
+        )
+        if not path:
+            return 
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.data_points, f, ensure_ascii=False, indent=2)
+        self.set_status(f"JSON Exported: {path}")
 
     def export_csv(self):
-        pass
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV", "*.csv")],
+            title="Export Data (CSV)",
+        )
+        if not path:
+            return
+        rows = self.data_points
+        if not rows: 
+            with open(path, "w", newline="", encoding="utf-8") as f:
+                f.write("")
+            self.set_status(f"CSV Exported (Empty): {path}")
+            return
+        fieldnames = sorted({k for row in rows for k in row.keys()})
+        with open(path, "w", newline="",encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+        self.set_status(f"CSV Exported: {path}")
+
+    def set_status(self, text: str):
+        if hasattr(self.statusbar, "set_status"):
+            self.statusbar.set_status(text)
      
 
 class TopBar(ttk.Frame):
-    def __init__(self, parent, controller = None):
+    def __init__(
+            self, parent, 
+            on_toggle_mode=None, on_home_button=None,
+            on_undo_action=None, on_redo_action=None, 
+            on_select_quarter=None, on_end_game=None,
+            on_save_game=None, on_reset_game=None,  
+            on_export_image=None, on_export_json=None, on_export_csv=None,
+            quarter_var: tk.StringVar | None=None,
+    ):              
         super().__init__(parent)
-        self.controller = controller
-
         self.grid_propagate(False)
         self.configure(height = BAR_HEIGHT)
 
@@ -94,75 +193,43 @@ class TopBar(ttk.Frame):
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=0)
 
-        self.title = ttk.Label(self, text="Dunk Vision")
-        self.title.grid(row=0, column=0, padx=10, pady=8, sticky="w")
+        left=ttk.Frame(self)
+        left.grid(row=0,column=0, sticky="w", padx=8, pady=6)
 
+        ttk.Label(left, text="Dunk Vision").grid(row=0, column=0, padx=(0,8))
+        ttk.Button(left, text="Home", command=on_home_button or (lambda:None)).grid(row=0, column=1, padx=3)
+        ttk.Button(left, text="Light/Dark", command=on_toggle_mode or (lambda:None)).grid(row=0, column=2, padx=3)
 
-        #Theme Button
-        ttk.Button(self, text = "Light/Dark", command = getattr(controller, "toggle_mode", lambda: None)).grid(
-            row=0, column=0, padx=10, pady=(12, 6), sticky="ew"
-        )
-        #Home Button 
-        ttk.Button(self, text="Home", command=getattr(controller, "home_button", lambda:None)).grid(
-            row=0, column=0, padx=10, pady=(12, 6), sticky="ew"
-        )
+        mid=ttk.Frame(self)
+        mid.grid(row=0, column=1, sticky="n", pady=6)
 
-        #Undo Button
-        ttk.Button(self, text="Undo", command=getattr(controller, "undo_action", lambda: None)).grid(
-            row=0, column=1, padx=10, pady=(12, 6), sticky="n"
-        )
+        ttk.Button(mid, text="Undo", command=on_undo_action or (lambda:None)).grid(row=0, column=0, padx=3)
+        ttk.Button(mid, text="Redo", command=on_redo_action or (lambda:None)).grid(row=0, column=1, padx=3)
 
-        #Redo Button
-        ttk.Button(self, text="Redo", command=getattr(controller, "redo_action", lambda: None)).grid(
-            row=0, column=1, padx=10, pady=(12, 6), sticky="n"
-        ) 
+        qvar=quarter_var or tk.StringVar(value="Q1")
+        for index, quarter in enumerate(("Q1", "Q2", "Q3", "Q4"), start=0):
+            ttk.Radiobutton(
+                mid, text=quarter, value=quarter, variable=qvar,
+                command=(lambda qq=quarter: (on_select_quarter or (lambda _q: None))(qq))
+            ).grid(row=0, column=2+index, padx=3)
+        
+        right=ttk.Frame(self)
+        right.grid(row=0, column=2, sticky="e", padx=8, pady=6)
 
-        #Quarter Block 
-        ttk.Button(self, text="Q1", command=getattr(controller, "select_quarter", lambda: None)).grid(
-            row=0, column=1, padx=10, pady=(12, 6), sticky="n"
-        )
-        ttk.Button(self, text="Q2", command=getattr(controller, "select_quarter", lambda: None)).grid(
-            row=0, column=1, padx=10, pady=(12, 6), sticky="n"
-        )
-        ttk.Button(self, text="Q3", command=getattr(controller, "select_quarter", lambda: None)).grid(
-            row=0, column=1, padx=10, pady=(12, 6), sticky="n"
-        )
-        ttk.Button(self, text="Q4", command=getattr(controller, "select_quarter", lambda: None)).grid(
-            row=0, column=1, padx=10, pady=(12, 6), sticky="n"
-        )
+        ttk.Button(right, text="Save", command=on_save_game or (lambda:None)).grid(row=0, column=0, padx=3)
+        ttk.Button(right, text="Reset", command=on_reset_game or (lambda:None)).grid(row=0, column=1, padx=3)
+        ttk.Button(right, text="End Game", command=on_end_game or (lambda:None)).grid(row=0, column=2, padx=3)
 
-        #Game Save
-        ttk.Button(self, text="Save", command=getattr(controller, "save_game", lambda: None)).grid(
-            row=0, column=1, padx=10, pady=(12, 6), sticky="n"
-        )
+        ttk.Button(right, text="Export Image", command=on_export_image or (lambda:None)).grid(row=0, column=3, padx=(12,3))
+        ttk.Button(right, text="Export JSON", command=on_export_json or (lambda:None)).grid(row=0, column=4, padx=3)
+        ttk.Button(right, text="Export CSV", command=on_export_csv or (lambda:None)).grid(row=0, column=5, padx=3)
 
-        #Game Reset
-        ttk.Button(self, text="Reset", command=getattr(controller, "reset_game", lambda: None)).grid(
-            row=0, column=1, padx=10, pady=(12, 6), sticky="n"
-        )
-
-        #Game End
-        ttk.Button(self, text="End Game", command=getattr(controller, "end_game", lambda: None)).grid(
-            row=0, column=1, padx=10, pady=(12, 6), sticky="n"
-        )
-
-        #Export Buttons
-        ttk.Button(self, text="Image", command=getattr(controller, "export_image", lambda: None)).grid(
-            row=0, column=2, padx=10, pady=(12, 6), sticky="n"
-        )
-        ttk.Button(self, text="JSON", command=getattr(controller, "export_json", lambda: None)).grid(
-            row=0, column=2, padx=10, pady=(12, 6), sticky="n"
-        )
-        ttk.Button(self, text="CSV", command=getattr(controller, "export_csv", lambda: None)).grid(
-            row=0, column=2, padx=10, pady=(12, 6), sticky="n"
-        )
        
 
 class SideBar(ttk.Frame):
     def __init__(self, parent, controller = None): 
         super().__init__(parent)
         self.controller = controller
-
         self.grid_propagate(False)
         self.configure(width = SIDE_WIDTH)
 
@@ -177,35 +244,43 @@ class SideBar(ttk.Frame):
         )
         team_dropdown.grid(row=0, column=0, pady=(10, 5), sticky = "ew")
         
+        #Player List Container
+        self.player_list_frame = tk.Frame(self.sidebar, bg="#BCA382")
+        self.player_list_frame.grid(row=1, column=0, sticky="nsew", pady=(10,10))
+
+        #Add and Remove Buttons
+        ttk.Button(self, text="Add", command=self.add_player_dialog).grid(row=2, column=0, pady=5, sticky="ew")
+        ttk.Button(self, text="Remove", command=self.remove_selected_player).grid(row=3, column=0, pady=5, sticky="ew")
+
         #Home and Away Rosters
         self.rosters={
             "My Team": ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"],
             "Their Team":["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"],
         }
-        #Player list container
-        self.player_list_frame = tk.Frame(self.sidebar, bg="#BF9F8F")
-        self.player_list_frame.grid(row=1, column=0, sticky="nsew", pady=(10,10))
-
-        #Subframe for holding default player buttons 
         self.player_buttons = []
         self.selected_player_button = None #track selection
 
-        #Add ADD PLAYER button 
-        self.add_button = tk.Button(self.sidebar, text="Add", command=self.add_player_dialog)
-        self.add_button.grid(row=2, column=0, pady=5, sticky="ew")
-        
-        #Add REMOVE PLAYER button
-        self.remove_button = tk.Button(self.sidebar, text="Remove", state="disabled", command=self.remove_selected_player)
-        self.remove_button.grid(row=3, column=0, pady=5, sticky="ew")
-
-        #Populate initial list and team switch 
-        self.refresh_player_list()
+        #Populate Initial List and Team Switch 
         self.selected_team.trace_add("write", lambda *_: self.on_team_change())
+        self.refresh_player_list()
         
-        self.player_btn_bg = "#e9e9e9"
-        self.player_btn_selected_bg = "#ffd966"
-        self.player_buttons = []
-        self.selected_player_button = None
+    def refresh_player_list(self):
+        for w in self.player_list_frame.winfo_children():
+            w.destroy()
+        for role in self.rosters[self.selected_team.get()]:
+            b = ttk.Button(self.player_list_frame, text=role)
+            b.pack(fill="x", padx=6, pady=2)
+            self.player_buttons.append(b)
+
+
+    def on_team_change(self):
+        self.refresh_player_list()
+
+    def add_player_dialog(self):
+        messagebox.showinfo("Add Player", "Add Player dialog not implemented")
+
+    def remove_selected_player(self):
+        messagebox.showingo("Remove Player", "Remove Player dialog not implemented")
 
 
 class StatusBar(ttk.Frame): 
