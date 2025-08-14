@@ -286,19 +286,18 @@ class TopBar(ttk.Frame):
                 mid, text=quarter, value=quarter, variable=qvar,
                 command=(lambda qq=quarter: (on_select_quarter or (lambda _q: None))(qq))
             ).grid(row=0, column=2+index, padx=3)
+        ttk.Button(right, text="End Game", command=on_end_game or (lambda:None)).grid(row=0, column=2 + len(quarter), padx=(12,3))
         
         right=ttk.Frame(self)
         right.grid(row=0, column=2, sticky="e", padx=8)
 
         ttk.Button(right, text="Save", command=on_save_game or (lambda:None)).grid(row=0, column=0, padx=3)
         ttk.Button(right, text="Reset", command=on_reset_game or (lambda:None)).grid(row=0, column=1, padx=3)
-        ttk.Button(right, text="End Game", command=on_end_game or (lambda:None)).grid(row=0, column=2, padx=3)
 
-        ttk.Button(right, text="Export Image", command=on_export_image or (lambda:None)).grid(row=0, column=3, padx=(12,3))
+        ttk.Button(right, text="Export Image", command=on_export_image or (lambda:None)).grid(row=0, column=3, padx=(16,3))
         ttk.Button(right, text="Export JSON", command=on_export_json or (lambda:None)).grid(row=0, column=4, padx=3)
         ttk.Button(right, text="Export CSV", command=on_export_csv or (lambda:None)).grid(row=0, column=5, padx=3)
 
-       
 
 class SideBar(ttk.Frame):
     def __init__(self, parent, controller = None): 
@@ -325,7 +324,7 @@ class SideBar(ttk.Frame):
         style.configure("PlayerSelected.TButton", padding=4, relief="sunken")
 
         #Team Selector
-        ttk.Label(self, text="Team").grid(row=0, column=0, sticky="w", padx=8, pady=(2,2))
+        ttk.Label(self, text="Select Your Team").grid(row=0, column=0, sticky="w", padx=8, pady=(2,2))
         self.team_dropdown_var = tk.StringVar()
         self.team_dropdown = ttk.OptionMenu(self, self.team_dropdown_var, "")
         self.team_dropdown.grid(row=1, column=0, sticky="ew", padx=8)
