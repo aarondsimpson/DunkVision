@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog
 from PIL import Image, ImageTk
 from src.config import SCREEN_IMAGES_DIR
+from pathlib import Path
 
 NATIVE_WIDTH = 1366
 NATIVE_HEIGHT = 768
