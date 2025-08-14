@@ -26,7 +26,7 @@ MODE = {
 class CourtFrame(ttk.Frame):
     def __init__(self, parent, controller=None):
         super().__init__(parent)
-        self.controller=controller
+        self.controller=self
         
         #State Definition 
         self.mode="dark"
@@ -82,8 +82,7 @@ class CourtFrame(ttk.Frame):
         self.statusbar.grid(row=2, column=0, columnspan=3, sticky="ew")
 
         self.update_mode()
-        if hasattr(self, "refresh stats"):
-            self.refresh_stats()   
+        self.refresh_stats()   
 
     def toggle_mode(self):
         self.mode="dark" if self.mode == "light" else "light"
@@ -276,6 +275,7 @@ class SideBar(ttk.Frame):
     def __init__(self, parent, controller = None): 
         super().__init__(parent)
         self.controller = controller
+        print("DEBUG: controller type in SideBar:", type(controller), flush=True)
         self.grid_propagate(False)
         self.configure(width = SIDE_WIDTH)
 
@@ -442,14 +442,14 @@ class DataBar(ttk.Frame):
         ttk.Label(self, text="Stats", anchor="center").grid(
             row=0, column=0, sticky="ew", padx=8, pady=(10,6)
         )
-        self.home_section = self._make_team_selection(self, team_key="home", row=1)
-        self.away_section = self._make_team_selection(self, team_key="away", row=2)
+        self.home_section = self._make_team_section(self, team_key="home", row=1)
+        self.away_section = self._make_team_section(self, team_key="away", row=2)
 
         for key, name_var in self.controller.team_names.items():
             name_var.trace_add("write", lambda *_, k=key: self._sync_heading(k))
         
         self._sync_heading("home")
-        self.sync_heading("away")
+        self._sync_heading("away")
 
         self.refresh_from_points(self.controller.data_points)
 
@@ -462,7 +462,8 @@ class DataBar(ttk.Frame):
             "shots": tk.IntVar(value=0),
             "made": tk.IntVar(value=0),
             "missed": tk.IntVar(value=0),
-            "airball": tk.IntVar(value=0)
+            "airball": tk.IntVar(value=0),
+            "pct": tk.StringVar(value=0),   
         }
         vars["heading"] = tk.StringVar(value="")
 
@@ -473,6 +474,7 @@ class DataBar(ttk.Frame):
         ttk.Label(box, text="Made:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["made"]).grid(row=r, column=1, sticky="e"); r+=1
         ttk.Label(box, text="Missed:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["missed"]).grid(row=r, column=1, sticky="e"); r+=1
         ttk.Label(box, text="Airball:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["airball"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="FG%:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["pct"]).grid(row=r, column=1, sticky="e"); r+=1
 
         if not hasattr(self, "_team_vars"):
             self._team_vars = {}
@@ -483,28 +485,35 @@ class DataBar(ttk.Frame):
         team_name = self.controller.team_names[team_key].get()
         self._team_vars[team_key]["heading"].set(f"{team_name} Stats")
 
-    def refresh_from_points(self, points:list[dict]):
-        stats={"home": {"shots": 0, "made": 0}, "away": {"shots": 0, "made": 0}}
+    def refresh_from_points(self, points: list[dict]):
+        stats = {
+            "home": {"shots": 0, "made": 0, "missed": 0, "airball": 0},
+            "away": {"shots": 0, "made": 0, "missed": 0, "airball": 0},
+        }
+
         for p in points or []:
             team = p.get("team")
             if team not in stats:
                 continue
             stats[team]["shots"] += 1
+            if p.get("airball"):
+                stats[team]["airball"] += 1
             if p.get("made"):
                 stats[team]["made"] += 1
-        for team_key in ("home", "away"):
-            shots = stats[team_key]["shots"]
-            made = stats[team_key]["made"]
-            missed = stats[team_key]["missed"]
-            airball = stats[team_key]["airball"]
-            pct = f"{made / shots (100):.1f}%" if shots else "-"
+            else:
+                stats[team]["missed"] += 1  # treat non-made as miss unless you separate airballs
 
+        for team_key in ("home", "away"):
+            s = stats[team_key]
+            shots, made = s["shots"], s["made"]
+            pct = f"{(made / shots) * 100:.1f}%" if shots else "-"
             vars = self._team_vars[team_key]
             vars["shots"].set(shots)
             vars["made"].set(made)
-            vars["missed"].set(missed)
-            vars["airball"].set(airball)
+            vars["missed"].set(s["missed"])
+            vars["airball"].set(s["airball"])
             vars["pct"].set(pct)
+
 
 
 

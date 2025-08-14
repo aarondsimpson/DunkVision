@@ -1,6 +1,6 @@
+from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk, messagebox
-from __future__ import annotations
 from typing import Optional
 from .player_dialogs import resolve, confirm, info, error
 

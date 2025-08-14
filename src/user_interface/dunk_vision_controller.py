@@ -1,10 +1,10 @@
 import tkinter as tk 
-from tkinter import ttk
+from tkinter import ttk, font as tkfont
 
 from src.config import ICON_PNG, ICON_ICO
 from src.user_interface.court_canvas import StartScreen, CourtScreen
 from src.user_interface.court_frames import TopBar, SideBar, StatusBar
-from src.user_interface.player_dialogs import confirm_action
+from src.user_interface.player_dialogs import confirm
 
 class DunkVisionApp(tk.Tk):
     def __init__(self):
@@ -74,12 +74,12 @@ class DunkVisionApp(tk.Tk):
             print(f"[Icon Warning] {e}")
 
 
-    def on_configure_start_change(self, _):
-        cur=self.state()
-        if cur != self.previous_state:
-            if self.prevous_state == "zoomed" and cur == "normal":
+    def on_configure_state_change(self, _):
+        current=self.state()
+        if current != self.previous_state:
+            if self.prevous_state == "zoomed" and current == "normal":
                 self.geometry(self.restore_geometry)
-                self.prevous_state=cur
+                self.prevous_state=current
 
 
     def show_start_screen(self):
@@ -97,9 +97,14 @@ class DunkVisionApp(tk.Tk):
     def init_styles(self):
         style=ttk.Style(self)
         style.configure("TButton", padding=(12, 6))
-        self.option_add("*Font", "Segoe UI 10")
+
+        base = tkfont.nametofont("TkDefaultFont")
+        base.configure(family="Segoe UI", size=10)
+        self.option_add("*Font", base)
+        self.option_add("*TButton.Font", base)
+        self.option_add("*Font", base)
 
 
     def on_app_close(self):
-        if confirm_action("quit"):
+        if confirm("quit"):
             self.destroy()
