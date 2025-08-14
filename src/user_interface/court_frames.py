@@ -106,6 +106,11 @@ class CourtFrame(ttk.Frame):
         self.statusbar.configure(style="StatusBar.TFrame")
         self.databar.configure(style="DataBar.TFrame")
 
+        if self.mode == "dark":
+            self.sidebar.set_card_colors(fill="#E8EDF6", border="#A8B3C5")
+        else: 
+            self.sidebar.set_card_colors(fill="#EFE9DD", border="#BDAA90")
+
     def home_button(self):
         if confirm("confirm_home",parent=self):
             if hasattr(self.controller, "go_home") and callable(self.controller.go_home):
@@ -280,22 +285,33 @@ class SideBar(ttk.Frame):
         self.grid_propagate(False)
         self.configure(width = SIDE_WIDTH)
 
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        self.card = tk.Frame(
+            self, 
+            bg = "#E8EDF6",
+            highlightthickness=1,
+            highlightbackground= "#A8B3C5",
+        )
+        self.card.grid(row=0, column=0, sticky="nsew", padx=8, pady=10)
+        self.inner = ttk.Frame(self.card, padding=8)
+        self.inner.pack(fill="both", expand=True)
+
         style=ttk.Style(self)
         style.configure("Player.TButton", padding=4)
         style.configure("PlayerSelected.TButton", padding=4, relief="sunken")
 
         #Team Selector
-        ttk.Label(self, text="Team").grid(row=0, column=0, sticky="w", padx=8, pady=(10,2))
+        ttk.Label(self, text="Team").grid(row=0, column=0, sticky="w", padx=8, pady=(2,2))
         self.team_dropdown_var = tk.StringVar()
         self.team_dropdown = ttk.OptionMenu(self, self.team_dropdown_var, "")
         self.team_dropdown.grid(row=1, column=0, sticky="ew", padx=8)
-        self.refresh_team_dropdown()
-        self.team_dropdown_var.trace_add("write", lambda *_: self.on_team_change())
         
         #Player List Container
         self.player_list_frame = ttk.Frame(self,style="PlayerList.TFrame")
         self.player_list_frame.grid(row=2, column=0, sticky="nsew", padx=8, pady=(8,10))
-        self.rowconfigure(2, weight=1)
+        self.inner.rowconfigure(2, weight=1)
+        self.inner.columnconfigure(0, weight=1)
 
         #Add and Remove Buttons
         self.add_btn = ttk.Button(self, text="Add", command=self.add_player)
@@ -352,6 +368,9 @@ class SideBar(ttk.Frame):
             b.configure(command=lambda btn=b: self.select_player_button(btn))
             b.pack(fill="x", padx=6, pady=2)
             self.player_buttons.append(b)
+
+    def set_card_colors(self, fill, border):
+        self.card.configure(bg=fill, highlightbackground=border)
 
     #Button Handlers 
     
