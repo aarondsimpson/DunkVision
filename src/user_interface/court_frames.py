@@ -81,7 +81,7 @@ class CourtFrame(ttk.Frame):
         self.databar.grid(row=1, column=2, sticky="ns")
 
         self.statusbar=StatusBar(self)
-        self.statusbar.grid(row=2, column=0, columnspan=3, sticky="ew")
+        self.statusbar.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(4,0))
 
         self.refresh_stats()   
 
@@ -224,7 +224,25 @@ class CourtFrame(ttk.Frame):
     def refresh_stats(self):
         if hasattr(self, "databar") and hasattr(self.databar, "refresh_from_points"):
             self.databar.refresh_from_points(self.data_points)
-     
+
+    def record_shot(self, *, team: str, x: int, y: int, made: bool, airball: bool=False, meta: dict|None=None):
+        point = {
+            "team": team, 
+            "x": int(x), "y": int(y),
+            "made": bool(made), "airball": bool(airball),
+            "quarter": self.quarter.get(),
+        }
+        if meta: point.update(meta)
+
+        self.data_points.append(point)
+        self.actions.append({"type": "shot", "data": point})
+        self.redo_stack.clear()
+        self.refresh_stats()
+
+        team_name = self.team_names[team].get()
+        outcome = "Made" if made else ("Airball" if airball else "Missed")
+        self.set_status(f"Recorded Shot: {team_name} - {outcome} (Q{self.quarter.get()[-1]}, x:{x}, y:{y})")
+             
 
 class TopBar(ttk.Frame):
     def __init__(
@@ -328,6 +346,8 @@ class SideBar(ttk.Frame):
         self.player_buttons = []
         self.selected_player_button = None #track selection
 
+        self.refresh_team_dropdown()
+        self.team_dropdown_var.trace_add("write", lambda *_: self.on_team_change())
         self.refresh_player_list()
         
     #Helper Functions 
@@ -439,7 +459,7 @@ class StatusBar(ttk.Frame):
         self.grid_propagate(False)
         self.configure(height = BAR_HEIGHT - 8)
 
-        self.grid_columnconfigure(0, weight = 0)
+        self.grid_columnconfigure(0, weight = 1)
         self.grid_columnconfigure(1, weight= 1)
 
         self.message_variable = tk.StringVar(value = "Ready.")
@@ -533,7 +553,3 @@ class DataBar(ttk.Frame):
             vars["missed"].set(s["missed"])
             vars["airball"].set(s["airball"])
             vars["pct"].set(pct)
-
-
-
-
