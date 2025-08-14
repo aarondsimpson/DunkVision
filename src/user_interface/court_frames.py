@@ -9,7 +9,7 @@ from .court_canvas import ScreenImage
 from .player_dialogs import confirm, info, error
 from .modals import add_player_dialog as add_player_modal, rename_team_dialog
 
-BAR_HEIGHT = 44
+BAR_HEIGHT = 60
 SIDE_WIDTH = 220
 
 MODE = {
@@ -67,7 +67,7 @@ class CourtFrame(ttk.Frame):
             on_export_json=self.export_json,
             quarter_var=self.quarter, 
             )
-        self.topbar.grid(row=0, column=0, columnspan=3, sticky="ew")
+        self.topbar.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0,4))
 
         self.sidebar=SideBar(self, controller=self)
         self.sidebar.grid(row=1, column=0, sticky="ns")
@@ -231,7 +231,7 @@ class TopBar(ttk.Frame):
             on_export_image=None, on_export_json=None, on_export_csv=None,
             quarter_var: tk.StringVar | None=None,
     ):              
-        super().__init__(parent)
+        super().__init__(parent, padding=(8, 10))
         self.grid_propagate(False)
         self.configure(height = BAR_HEIGHT)
 
@@ -240,14 +240,14 @@ class TopBar(ttk.Frame):
         self.grid_columnconfigure(2, weight=0)
 
         left=ttk.Frame(self)
-        left.grid(row=0,column=0, sticky="w", padx=8, pady=6)
+        left.grid(row=0,column=0, sticky="w", padx=8)
 
-        ttk.Label(left, text="Dunk Vision").grid(row=0, column=0, padx=(0,8))
+        #ttk.Label(left, text="Dunk Vision").grid(row=0, column=0, padx=(0,8))#Consider removing this - If so, update column numbers below so they shift left. 
         ttk.Button(left, text="Home", command=on_home_button or (lambda:None)).grid(row=0, column=1, padx=3)
-        ttk.Button(left, text="Light/Dark", command=on_toggle_mode or (lambda:None)).grid(row=0, column=2, padx=3)
+        ttk.Button(left, text="Theme", command=on_toggle_mode or (lambda:None)).grid(row=0, column=2, padx=3)
 
         mid=ttk.Frame(self)
-        mid.grid(row=0, column=1, sticky="n", pady=6)
+        mid.grid(row=0, column=1)
 
         ttk.Button(mid, text="Undo", command=on_undo_action or (lambda:None)).grid(row=0, column=0, padx=3)
         ttk.Button(mid, text="Redo", command=on_redo_action or (lambda:None)).grid(row=0, column=1, padx=3)
@@ -260,7 +260,7 @@ class TopBar(ttk.Frame):
             ).grid(row=0, column=2+index, padx=3)
         
         right=ttk.Frame(self)
-        right.grid(row=0, column=2, sticky="e", padx=8, pady=6)
+        right.grid(row=0, column=2, sticky="e", padx=8)
 
         ttk.Button(right, text="Save", command=on_save_game or (lambda:None)).grid(row=0, column=0, padx=3)
         ttk.Button(right, text="Reset", command=on_reset_game or (lambda:None)).grid(row=0, column=1, padx=3)

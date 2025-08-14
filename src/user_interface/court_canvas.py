@@ -11,7 +11,6 @@ class ScreenImage(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
         self.canvas = tk.Canvas(self, highlightthickness=0, bg="#230F1A")
-        self.canvas.configure(bg="#230F1A")
         self.canvas.pack(fill="both", expand=True)
 
         self.images: dict[str, Image.Image] = {}
