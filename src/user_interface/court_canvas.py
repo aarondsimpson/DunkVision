@@ -10,7 +10,8 @@ NATIVE_HEIGHT = 768
 class ScreenImage(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
-        self.canvas = tk.Canvas(self, highlightthickness=0)
+        self.canvas = tk.Canvas(self, highlightthickness=0, bg="#230F1A")
+        self.canvas.configure(bg="#230F1A")
         self.canvas.pack(fill="both", expand=True)
 
         self.images: dict[str, Image.Image] = {}
@@ -48,6 +49,25 @@ class ScreenImage(ttk.Frame):
             if self._current_key:
                 self._render()
 
+    def _fit_image(self, src, target_width, target_height, mode="contain"):
+        iw, ih = src.size
+        if mode == "cover":
+            target_ar = target_width / target_height
+            image_ar = iw/ih
+            if image_ar > target_ar:
+                new_width = int(ih * target_ar)
+                left = (iw - new_width) // 2
+                box = (left, 0, left + new_width, ih)
+            else: 
+                new_height = int(iw / target_ar)
+                top = (ih - new_height) // 2
+                box = (0, top, iw, top + new_height)
+            src = src.crop(box)
+            return src.resize((target_width, target_height), Image.LANCZOS)
+        scale = min(target_width / iw, target_height / ih)
+        d_width, d_height = max(1, int(iw*scale)), max(1, int(ih*scale))
+        return src.resize((d_width, d_height), Image.LANCZOS)
+
     def _render(self) -> None:
         if not self._current_key:
             return
@@ -58,16 +78,17 @@ class ScreenImage(ttk.Frame):
             self._image_id = None
             return
 
-        width = max(self.canvas.winfo_width(), 1)
-        height = max(self.canvas.winfo_height(), 1)
+        cw = max(self.canvas.winfo_width(),1)
+        ch = max(self.canvas.winfo_height(),1)
 
-        scale = min(width / NATIVE_WIDTH, height / NATIVE_HEIGHT)
-        d_w, d_h = max(1, int(NATIVE_WIDTH * scale)), max(1, int(NATIVE_HEIGHT * scale))
-        x = (width - d_w) // 2
-        y = (height - d_h) // 2
+        mode = "cover" if self._current_key == "start" else "contain"
+        img = self._fit_image(src, cw, ch, mode=mode)
 
-        resized = src.resize((d_w, d_h), Image.LANCZOS)
-        self._photo = ImageTk.PhotoImage(resized)
+        iw, ih = img.size
+        x = (cw - iw) // 2
+        y = (ch - ih) // 2
+
+        self._photo = ImageTk.PhotoImage(img)
         if self._image_id is None:
             self._image_id = self.canvas.create_image(x, y, anchor="nw", image=self._photo)
         else:
