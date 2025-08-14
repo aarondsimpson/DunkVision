@@ -60,7 +60,7 @@ def add_player_dialog(parent: tk.Misc, team: str, positions: list[str]) -> Optio
 
 
 def rename_team_dialog(parent: tk.Misc, current_name:str) -> str | None:
-    win = tk.TopLevel(parent)
+    win = tk.Toplevel(parent)
     win.title("Rename Team")
     win.transient(parent)
     win.grab(set)

@@ -74,6 +74,8 @@ class CourtFrame(ttk.Frame):
 
         self.center_canvas=ScreenImage(self)
         self.center_canvas.grid(row=1, column=1, sticky="nsew")
+
+        self.after_idle(self.update_mode)
         
         self.databar = DataBar(self, controller=self)
         self.databar.grid(row=1, column=2, sticky="ns")
@@ -81,7 +83,6 @@ class CourtFrame(ttk.Frame):
         self.statusbar=StatusBar(self)
         self.statusbar.grid(row=2, column=0, columnspan=3, sticky="ew")
 
-        self.update_mode()
         self.refresh_stats()   
 
     def toggle_mode(self):

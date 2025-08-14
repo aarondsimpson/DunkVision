@@ -9,46 +9,73 @@ NATIVE_HEIGHT = 768
 class ScreenImage(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
-        self.canvas = tk.Canvas(self, highlightthickness=0, bd=0, bg="#111")
-        self.canvas.grid(row=0, column=0, sticky="nsew")
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=1)
+        self.canvas = tk.Canvas(self, highlightthickness=0)
+        self.canvas.pack(fill="both", expand=True)
 
-        self.images = {} #Key -> PIL.Image
-        self.tkref = None
-        self.current = None
+        # internal state
+        self.images: dict[str, Image.Image] = {}  # cache of PIL images
+        self._photo: ImageTk.PhotoImage | None = None
+        self._current_key: str | None = None
+        self._last_size: tuple[int, int] = (0, 0)
+        self._image_id: int | None = None
 
-        #Preload Images
+        # Preload Images
         self.load_image("start", "dv_start_screen_with_buttons.png")
         self.load_image("court_light", "court_light_mode.png")
         self.load_image("court_dark", "court_dark_mode.png")
 
-        self.bind("<Configure>", lambda _: self.image_draw())
+        # React to size changes
+        self.bind("<Configure>", self._on_configure)
 
-    def load_image(self, key, filename):
+    def load_image(self, key: str, filename: str) -> None:
         path = SCREEN_IMAGES_DIR / filename
-        if path.exists():
-            self.images[key] = Image.open(path).convert("RGBA")
-    
-    def show(self, key: str):
-        self.current=key
-        self.image_draw()
+        try:
+            if path.exists():
+                self.images[key] = Image.open(path).convert("RGBA")
+            else:
+                print(f"[ScreenImage] Missing file: {path}")
+        except Exception as e:
+            print(f"[ScreenImage] Failed to load {path}: {e}")
 
-    def image_draw(self):
-        self.canvas.delete("all")
-        image=self.images.get(self.current)
-        if not image:
+    def show(self, key: str) -> None:
+        self._current_key = key
+        self.after_idle(self._render)
+
+    def _on_configure(self, event) -> None:
+        size = (event.width, event.height)
+        if size != self._last_size:
+            self._last_size = size
+            if self._current_key:
+                self._render()
+
+    def _render(self) -> None:
+        """Render the currently selected image, centered and scaled to fit."""
+        if not self._current_key:
             return
-        width, height=self.canvas.winfo_width(), self.canvas.winfo_height()
-        if width < 2 or height <2:
-            return 
-        
-        scale=min(width / NATIVE_WIDTH, height / NATIVE_HEIGHT)
-        d_width, d_height=int(NATIVE_WIDTH*scale), int(NATIVE_HEIGHT*scale)
-        x, y=(width - d_width) // 2, (height - d_height) // 2
-        resized=image.resize((d_width, d_height), Image.LANCZOS) 
-        self.tkref=ImageTk.PhotoImage(resized)
-        self.canvas.create_image(x, y, anchor="nw", image=self.tkref)
+        src = self.images.get(self._current_key)
+        if src is None:
+            self.canvas.delete("all")
+            self._photo = None
+            self._image_id = None
+            return
+
+        width = max(self.canvas.winfo_width(), 1)
+        height = max(self.canvas.winfo_height(), 1)
+
+        # Preserve aspect ratio
+        scale = min(width / NATIVE_WIDTH, height / NATIVE_HEIGHT)
+        d_w, d_h = max(1, int(NATIVE_WIDTH * scale)), max(1, int(NATIVE_HEIGHT * scale))
+        x = (width - d_w) // 2
+        y = (height - d_h) // 2
+
+        resized = src.resize((d_w, d_h), Image.LANCZOS)
+        self._photo = ImageTk.PhotoImage(resized)
+        if self._image_id is None:
+            self._image_id = self.canvas.create_image(x, y, anchor="nw", image=self._photo)
+        else:
+            # Move & swap image without recreating every time
+            self.canvas.coords(self._image_id, x, y)
+            self.canvas.itemconfigure(self._image_id, image=self._photo)
 
 
 class StartScreen(ttk.Frame):

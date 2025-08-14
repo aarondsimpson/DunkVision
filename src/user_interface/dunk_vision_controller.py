@@ -3,7 +3,7 @@ from tkinter import ttk, font as tkfont
 
 from src.config import ICON_PNG, ICON_ICO
 from src.user_interface.court_canvas import StartScreen, CourtScreen
-from src.user_interface.court_frames import TopBar, SideBar, StatusBar
+from src.user_interface.court_frames import TopBar, SideBar, StatusBar, CourtFrame
 from src.user_interface.player_dialogs import confirm
 
 class DunkVisionApp(tk.Tk):
@@ -23,7 +23,7 @@ class DunkVisionApp(tk.Tk):
             self.geometry(f"{screen_width}x{screen_height}+0+0")
 
         self.update_idletasks()
-        self.prevous_state=self.state()
+        self.previous_state=self.state()
         self.bind("<Configure>", self.on_configure_state_change)
 
         self.set_app_icon()
@@ -44,20 +44,9 @@ class DunkVisionApp(tk.Tk):
         self.root.grid_rowconfigure(1, weight=1)
         self.root.grid_columnconfigure(1, weight=1)
 
-        #Bars
-        self.topbar=TopBar(self.root)
-        self.topbar.grid(row=0, column=0, columnspan=3, sticky="ew")
-        
-        self.sidebar=SideBar(self.root, controller=self)
-        self.sidebar.grid(row=1, column=0, sticky="ns")
-
         #Center - Starting with StartScreen, moving to CourtScreen
         self.center=StartScreen(self.root, controller=self)
         self.center.grid(row=1, column=1, sticky="nsew")
-
-        #Status Bar
-        self.status=StatusBar(self.root)
-        self.status.grid(row=2, column=0, columnspan=3, sticky="ew") 
 
         #TEST THIS FOR AESTHETICS - SPACER SO SIDEBAR DOESN'T HUG, MAYBE NOT NEEDED SINCE IMAGE HAS BUFFER BUILT-IN
         self.root.grid_columnconfigure(2, minsize=8)   
@@ -90,7 +79,7 @@ class DunkVisionApp(tk.Tk):
 
     def show_court_screen(self):
         self.center.grid_forget()
-        self.center=CourtScreen(self.root, controller = self)
+        self.center=CourtFrame(self.root)
         self.center.grid(row=1, column=1, sticky="nsew")
 
 
@@ -102,9 +91,8 @@ class DunkVisionApp(tk.Tk):
         base.configure(family="Segoe UI", size=10)
         self.option_add("*Font", base)
         self.option_add("*TButton.Font", base)
-        self.option_add("*Font", base)
-
-
+      
+      
     def on_app_close(self):
         if confirm("quit"):
             self.destroy()
