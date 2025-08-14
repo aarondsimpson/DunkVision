@@ -77,42 +77,43 @@ python project.py
 
 <h2> Project Layout</h2>
 
-| Root        | Level 2       | Level 3         | File                |Description                                                                          |
-| :---------- |:--------------|:----------------|:--------------------|:------------------------------------------------------------------------------------|
-|project.py   |               |                 |                     |Entry point to the Dunk Vision application, containing the main loop                 |
-|             |assets         |                 |                     |Contains the assets required for the user interface                                  |
-|             |               |screen_images    |                     |Contains load screen images and top-down court views                                 |
-|             |               |mask_images      |                     |Contains mask images to support binary mask creation                                 |
-|             |               |icons            |                     |Contains icons for creating local .exe                                               |
-|             |               |fonts            |                     |Contains fonts used across the user-interface                                        |         
-|             |session_data   |                 |                     |Contains persistent and temporary user data                                          | 
-|             |               |player_profiles  |                     |Contains persistent player profiles across sessions                                  | 
-|             |               |                 |default_profiles.json|Contains the default player profile data                                             |     
-|             |               |                 |custom_profiles.json |Contains the user-defined player profile data                                        |
-|             |               |session_profiles |                     |Contains saved sessions and game data for loading                                    |
-|             |               |tmp              |                     |Contains autosaves and file recovery data                                            |
-|             |src            |                 |                     |Contains all application logic                                                       |
-|             |               |                 |__ init __.py        |Ensures the 'src' folder is identified as a package                                  |                  
-|             |               |                 |config.py            |Contains centralized application settings and pathing constants                      |
-|             |               |user_interface   |                     |Contains all user interface modules                                                  | 
-|             |               |                 |__ init __.py        |Ensures that the 'user interface' folder is identified as a package                  |
-|             |               |                 |dunk_vision_app.py   |Controls and organizes all other UI files and is the entry point into UI             |
-|             |               |                 |court_frames.py      |Controls the court view frame, including drawing zones and handling clicks           |
-|             |               |                 |court_canvas.py      |Controls the rendering for court visuals and overlays                                |
-|             |               |                 |modals.py            |Contains pop-up windows for user prompts and confirmations                           |
-|             |               |                 |player_dialogs.py    |Contains UI dialogs for populating modals for prompts and confirmations              |
-|             |               |application_logic|                     |                                                                                     |
-|             |               |                 |__ init __.py        |Ensures that the 'application_logic' folder is identified as a package               |
-|             |               |                 |zoning.py            |Defines zones and handles click-hit detection                                        |
-|             |               |                 |zone_configuration.py|Parameterizes zones and constants                                                    |
-|             |               |devtools         |                     |Contains tools for probing click-hits, confirming zone boundaries, and recalibration |
-|             |               |                 |__ init __.py        |Ensures that the 'devtools' folder is identified as a package                        |
-|             |               |                 |probe_tool.py        |Developer tool to visualize click coordinates for zone detection and definition      |
-|             |               |                 |calibration_tool.py  |Developer tool to recalibrate court bounding boxes                                   |
-|             |               |                 |overlay_drawing.py   |Developer tool to draw overlays to confirm click boundaries and court zones          |
-|             |               |                 |mask_builder.py      |Creates a binary mask image to map to assign user clicks to court boundaries         |
-|             |               |data_analysis    |                     |Contains data analysis tools to handle collected data points that feed to modals     |
-|             |               |                 |tbd.py               |Placeholder for undefined data analysis tools                                        |
+| Root        | Level 2       | Level 3         | File                 |Description                                                                          |
+| :---------- |:--------------|:----------------|:---------------------|:------------------------------------------------------------------------------------|
+|project.py   |               |                 |                      |Entry point to the Dunk Vision application, containing the main loop                 |
+|             |assets         |                 |                      |Contains the assets required for the user interface                                  |
+|             |               |screen_images    |                      |Contains load screen images and top-down court views                                 |
+|             |               |mask_images      |                      |Contains mask images to support binary mask creation                                 |
+|             |               |icons            |                      |Contains icons for creating local .exe                                               |
+|             |               |fonts            |                      |Contains fonts used across the user-interface                                        |         
+|             |session_data   |                 |                      |Contains persistent and temporary user data                                          | 
+|             |               |player_profiles  |                      |Contains persistent player profiles across sessions                                  | 
+|             |               |                 |default_profiles.json |Contains the default player profile data                                             |     
+|             |               |                 |custom_profiles.json  |Contains the user-defined player profile data                                        |
+|             |               |session_profiles |                      |Contains saved sessions and game data for loading                                    |
+|             |               |tmp              |                      |Contains autosaves and file recovery data                                            |
+|             |src            |                 |                      |Contains all application logic                                                       |
+|             |               |                 |__ init __.py         |Ensures the 'src' folder is identified as a package                                  |                  
+|             |               |                 |config.py             |Contains centralized application settings and pathing constants                      |
+|             |               |user_interface   |                      |Contains all user interface modules                                                  | 
+|             |               |                 |__ init __.py         |Ensures that the 'user interface' folder is identified as a package                  |
+|             |               |                 |dunk_vision_app.py    |Controls and organizes all other UI files and is the entry point into UI             |
+|             |               |                 |court_frames.py       |Controls the court view frame, including drawing zones and handling clicks           |
+|             |               |                 |court_canvas.py       |Controls the rendering for court visuals and overlays                                |
+|             |               |                 |modals.py             |Contains pop-up windows for user prompts and confirmations                           |
+|             |               |                 |player_dialogs.py     |Contains UI dialogs for populating modals for prompts and confirmations              |
+|             |               |                 |court_interactivity.py|Controls the court click plumbing and converts canvas cords to native image coords   |
+|             |               |application_logic|                      |                                                                                     |
+|             |               |                 |__ init __.py         |Ensures that the 'application_logic' folder is identified as a package               |
+|             |               |                 |zoning.py             |Defines zones and handles click-hit detection                                        |
+|             |               |                 |zone_configuration.py |Parameterizes zones and constants                                                    |
+|             |               |devtools         |                      |Contains tools for probing click-hits, confirming zone boundaries, and recalibration |
+|             |               |                 |__ init __.py         |Ensures that the 'devtools' folder is identified as a package                        |
+|             |               |                 |probe_tool.py         |Developer tool to visualize click coordinates for zone detection and definition      |
+|             |               |                 |calibration_tool.py   |Developer tool to recalibrate court bounding boxes                                   |
+|             |               |                 |overlay_drawing.py    |Developer tool to draw overlays to confirm click boundaries and court zones          |
+|             |               |                 |mask_builder.py       |Creates a binary mask image to map to assign user clicks to court boundaries         |
+|             |               |data_analysis    |                      |Contains data analysis tools to handle collected data points that feed to modals     |
+|             |               |                 |tbd.py                |Placeholder for undefined data analysis tools                                        |
 
 <h2>Usage</h2>
 
