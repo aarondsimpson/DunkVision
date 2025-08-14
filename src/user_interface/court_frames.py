@@ -1,9 +1,9 @@
 import json 
 import csv
 import tkinter as tk
-
+import os 
 from tkinter import ttk, filedialog
-from PIL import ImageGrab
+from PIL import ImageGrab, Image, ImageTk
 
 from .court_canvas import ScreenImage
 from .player_dialogs import confirm, info, error
@@ -258,6 +258,10 @@ class TopBar(ttk.Frame):
         self.grid_propagate(False)
         self.configure(height = BAR_HEIGHT)
 
+        icon_path = os.path.join("path", "to", "dv_app_icon.png")
+        icon_img = Image.open(icon_path).resize((24,24), Image.LANCZOS)
+        self.icon_photo = ImageTk.PhotoImage(icon_img)
+
         self.grid_columnconfigure(0, weight=0)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=0)
@@ -265,7 +269,8 @@ class TopBar(ttk.Frame):
         left=ttk.Frame(self)
         left.grid(row=0,column=0, sticky="w", padx=8)
 
-        #ttk.Label(left, text="Dunk Vision").grid(row=0, column=0, padx=(0,8))#Consider removing this - If so, update column numbers below so they shift left. 
+        ttk.Label(left, image=self.icon_photo).grid(row=0, column=0, padx=(0,8))
+        self.icon_photo=self.icon_photo
         ttk.Button(left, text="Home", command=on_home_button or (lambda:None)).grid(row=0, column=1, padx=3)
         ttk.Button(left, text="Theme", command=on_toggle_mode or (lambda:None)).grid(row=0, column=2, padx=3)
 
