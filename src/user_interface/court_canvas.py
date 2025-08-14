@@ -13,20 +13,18 @@ class ScreenImage(ttk.Frame):
         self.canvas = tk.Canvas(self, highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
 
-        # internal state
-        self.images: dict[str, Image.Image] = {}  # cache of PIL images
+        self.images: dict[str, Image.Image] = {}
         self._photo: ImageTk.PhotoImage | None = None
         self._current_key: str | None = None
         self._last_size: tuple[int, int] = (0, 0)
         self._image_id: int | None = None
 
-        # Preload Images
         self.load_image("start", "dv_start_screen_with_buttons.png")
         self.load_image("court_light", "court_light_mode.png")
         self.load_image("court_dark", "court_dark_mode.png")
 
-        # React to size changes
-        self.bind("<Configure>", self._on_configure)
+        # Bind to the CANVAS so we catch real size changes
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
 
     def load_image(self, key: str, filename: str) -> None:
         path = SCREEN_IMAGES_DIR / filename
@@ -40,9 +38,10 @@ class ScreenImage(ttk.Frame):
 
     def show(self, key: str) -> None:
         self._current_key = key
+        # Render after layout completes
         self.after_idle(self._render)
 
-    def _on_configure(self, event) -> None:
+    def _on_canvas_configure(self, event) -> None:
         size = (event.width, event.height)
         if size != self._last_size:
             self._last_size = size
@@ -50,7 +49,6 @@ class ScreenImage(ttk.Frame):
                 self._render()
 
     def _render(self) -> None:
-        """Render the currently selected image, centered and scaled to fit."""
         if not self._current_key:
             return
         src = self.images.get(self._current_key)
@@ -63,7 +61,6 @@ class ScreenImage(ttk.Frame):
         width = max(self.canvas.winfo_width(), 1)
         height = max(self.canvas.winfo_height(), 1)
 
-        # Preserve aspect ratio
         scale = min(width / NATIVE_WIDTH, height / NATIVE_HEIGHT)
         d_w, d_h = max(1, int(NATIVE_WIDTH * scale)), max(1, int(NATIVE_HEIGHT * scale))
         x = (width - d_w) // 2
@@ -74,7 +71,6 @@ class ScreenImage(ttk.Frame):
         if self._image_id is None:
             self._image_id = self.canvas.create_image(x, y, anchor="nw", image=self._photo)
         else:
-            # Move & swap image without recreating every time
             self.canvas.coords(self._image_id, x, y)
             self.canvas.itemconfigure(self._image_id, image=self._photo)
 
