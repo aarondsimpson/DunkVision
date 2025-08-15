@@ -1,5 +1,8 @@
+from pathlib import Path
+import sys
 import tkinter as tk 
 from tkinter import ttk, font as tkfont
+from PIL import Image, ImageTk
 
 from src.config import ICON_PNG, ICON_ICO
 from src.user_interface.court_canvas import StartScreen, CourtScreen
@@ -10,6 +13,19 @@ class DunkVisionApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Dunk Vision")
+
+        if sys.platform.startswith("win"):
+            try:
+                import ctypes
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                    u"com.dunkvision.app"
+                )
+            except Exception:
+                pass
+
+            icon_path = Path(__file__).parent.parent / "assets" / "icons" / "dv_app_icon.ico"
+            if icon_path.exists():
+                self.iconbitmap(str(icon_path))
 
         self.restore_geometry="1024x576+100+100"
         self.minsize(854, 480)
@@ -52,15 +68,15 @@ class DunkVisionApp(tk.Tk):
         self.root.grid_columnconfigure(2, minsize=8)   
                                
     def set_app_icon(self):
-        try: 
-            if ICON_ICO.exists():
-                self.iconbitmap(str(ICON_ICO))
-            if ICON_PNG.exists():
-                png=tk.PhotoImage(file=str(ICON_PNG))
-                self.icon_reference=png 
-                self.iconphoto(True, png)
-        except Exception as e:
-            print(f"[Icon Warning] {e}")
+        base = Path(__file__).resolve().parent.parent
+        ico = base / "assets" / "icons" / "dv_app_icon.ico"
+        png = base / "assets" / "icons" / "dv_app_icon.png"
+
+        if sys.platform.startswith("win") and ico.exists(): 
+            self.iconbitmap(str(ico))
+        elif png.exists():
+            self.iconphoto(True, ImageTk.PhotoImage(Image.open(png)))
+        
 
 
     def on_configure_state_change(self, _):

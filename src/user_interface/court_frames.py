@@ -8,6 +8,7 @@ from PIL import ImageGrab, Image, ImageTk
 from .court_canvas import ScreenImage
 from .player_dialogs import confirm, info, error
 from .modals import add_player_dialog as add_player_modal, rename_team_dialog
+from src import config
 
 BAR_HEIGHT = 60
 SIDE_WIDTH = 220
@@ -258,7 +259,7 @@ class TopBar(ttk.Frame):
         self.grid_propagate(False)
         self.configure(height = BAR_HEIGHT)
 
-        icon_path = os.path.join("path", "to", "dv_app_icon.png")
+        icon_path = os.path.join(config.ASSETS_DIR, "icons", "dv_app_icon.png")
         icon_img = Image.open(icon_path).resize((24,24), Image.LANCZOS)
         self.icon_photo = ImageTk.PhotoImage(icon_img)
 
@@ -275,22 +276,28 @@ class TopBar(ttk.Frame):
         ttk.Button(left, text="Theme", command=on_toggle_mode or (lambda:None)).grid(row=0, column=2, padx=3)
 
         mid=ttk.Frame(self)
-        mid.grid(row=0, column=1)
+        mid.grid(row=0, column=1, stick = "n", pady=6)
 
         ttk.Button(mid, text="Undo", command=on_undo_action or (lambda:None)).grid(row=0, column=0, padx=3)
         ttk.Button(mid, text="Redo", command=on_redo_action or (lambda:None)).grid(row=0, column=1, padx=3)
 
+        quarters = ("Q1", "Q2", "Q3", "Q4")
         qvar=quarter_var or tk.StringVar(value="Q1")
-        for index, quarter in enumerate(("Q1", "Q2", "Q3", "Q4"), start=0):
+        base_column = 2
+        for index, quarter in enumerate(quarters):
             ttk.Radiobutton(
                 mid, text=quarter, value=quarter, variable=qvar,
                 command=(lambda qq=quarter: (on_select_quarter or (lambda _q: None))(qq))
-            ).grid(row=0, column=2+index, padx=3)
-        ttk.Button(right, text="End Game", command=on_end_game or (lambda:None)).grid(row=0, column=2 + len(quarter), padx=(12,3))
-        
+            ).grid(row=0, column= base_column +index, padx=3)
+
+        end_button_column = base_column + len(quarters)
+        ttk.Button(mid, text="End Game", command=on_end_game or (lambda:None)
+                   ).grid(row=0, column = end_button_column, padx=(12,3))
+
+
         right=ttk.Frame(self)
         right.grid(row=0, column=2, sticky="e", padx=8)
-
+        
         ttk.Button(right, text="Save", command=on_save_game or (lambda:None)).grid(row=0, column=0, padx=3)
         ttk.Button(right, text="Reset", command=on_reset_game or (lambda:None)).grid(row=0, column=1, padx=3)
 
