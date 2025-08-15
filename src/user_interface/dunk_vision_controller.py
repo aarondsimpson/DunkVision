@@ -74,9 +74,7 @@ class DunkVisionApp(tk.Tk):
         self.center=StartScreen(self.root, controller=self)
         self.center.grid(row=1, column=1, sticky="nsew")
 
-        #TEST THIS FOR AESTHETICS - SPACER SO SIDEBAR DOESN'T HUG, MAYBE NOT NEEDED SINCE IMAGE HAS BUFFER BUILT-IN
-        self.root.grid_columnconfigure(2, minsize=8)   
-                               
+                              
     def set_app_icon(self):
         base = Path(__file__).resolve().parent.parent
         ico = base / "assets" / "icons" / "dv_app_icon.ico"
