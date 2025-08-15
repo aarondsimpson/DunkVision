@@ -27,7 +27,7 @@ MODE = {
 class CourtFrame(ttk.Frame):
     def __init__(self, parent, controller=None):
         super().__init__(parent)
-        self.controller=self
+        self.controller= controller or self
         
         #State Definition 
         self.mode="dark"
@@ -74,6 +74,7 @@ class CourtFrame(ttk.Frame):
         self.sidebar=SideBar(self, controller=self)
         self.sidebar.grid(row=1, column=0, sticky="nsew")
 
+        self.center = CourtFrame(self.root, controller=self)
         self.center_canvas=ScreenImage(self)
         self.center_canvas.grid(row=1, column=1, sticky="nsew")
         

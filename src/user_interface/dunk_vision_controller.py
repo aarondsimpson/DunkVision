@@ -122,3 +122,7 @@ class DunkVisionApp(tk.Tk):
     def on_app_close(self):
         if confirm("quit"):
             self.destroy()
+
+    
+    def go_home(self):
+        self.show_start_screen()
