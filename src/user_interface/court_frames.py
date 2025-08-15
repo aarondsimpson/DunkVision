@@ -1,15 +1,15 @@
 import json 
 import csv
 import tkinter as tk
-
+import os 
 from tkinter import ttk, filedialog
-from PIL import ImageGrab
+from PIL import ImageGrab, Image, ImageTk
 
 from .court_canvas import ScreenImage
 from .player_dialogs import confirm, info, error
 from .modals import add_player_dialog as add_player_modal, rename_team_dialog
 
-BAR_HEIGHT = 44
+BAR_HEIGHT = 60
 SIDE_WIDTH = 220
 
 MODE = {
@@ -67,7 +67,7 @@ class CourtFrame(ttk.Frame):
             on_export_json=self.export_json,
             quarter_var=self.quarter, 
             )
-        self.topbar.grid(row=0, column=0, columnspan=3, sticky="ew")
+        self.topbar.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0,4))
 
         self.sidebar=SideBar(self, controller=self)
         self.sidebar.grid(row=1, column=0, sticky="ns")
@@ -81,7 +81,7 @@ class CourtFrame(ttk.Frame):
         self.databar.grid(row=1, column=2, sticky="ns")
 
         self.statusbar=StatusBar(self)
-        self.statusbar.grid(row=2, column=0, columnspan=3, sticky="ew")
+        self.statusbar.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(4,0))
 
         self.refresh_stats()   
 
@@ -105,6 +105,11 @@ class CourtFrame(ttk.Frame):
         self.sidebar.configure(style="SideBar.TFrame")
         self.statusbar.configure(style="StatusBar.TFrame")
         self.databar.configure(style="DataBar.TFrame")
+
+        if self.mode == "dark":
+            self.sidebar.set_card_colors(fill="#E8EDF6", border="#A8B3C5")
+        else: 
+            self.sidebar.set_card_colors(fill="#EFE9DD", border="#BDAA90")
 
     def home_button(self):
         if confirm("confirm_home",parent=self):
@@ -219,7 +224,25 @@ class CourtFrame(ttk.Frame):
     def refresh_stats(self):
         if hasattr(self, "databar") and hasattr(self.databar, "refresh_from_points"):
             self.databar.refresh_from_points(self.data_points)
-     
+
+    def record_shot(self, *, team: str, x: int, y: int, made: bool, airball: bool=False, meta: dict|None=None):
+        point = {
+            "team": team, 
+            "x": int(x), "y": int(y),
+            "made": bool(made), "airball": bool(airball),
+            "quarter": self.quarter.get(),
+        }
+        if meta: point.update(meta)
+
+        self.data_points.append(point)
+        self.actions.append({"type": "shot", "data": point})
+        self.redo_stack.clear()
+        self.refresh_stats()
+
+        team_name = self.team_names[team].get()
+        outcome = "Made" if made else ("Airball" if airball else "Missed")
+        self.set_status(f"Recorded Shot: {team_name} - {outcome} (Q{self.quarter.get()[-1]}, x:{x}, y:{y})")
+             
 
 class TopBar(ttk.Frame):
     def __init__(
@@ -231,23 +254,28 @@ class TopBar(ttk.Frame):
             on_export_image=None, on_export_json=None, on_export_csv=None,
             quarter_var: tk.StringVar | None=None,
     ):              
-        super().__init__(parent)
+        super().__init__(parent, padding=(8, 10))
         self.grid_propagate(False)
         self.configure(height = BAR_HEIGHT)
+
+        icon_path = os.path.join("path", "to", "dv_app_icon.png")
+        icon_img = Image.open(icon_path).resize((24,24), Image.LANCZOS)
+        self.icon_photo = ImageTk.PhotoImage(icon_img)
 
         self.grid_columnconfigure(0, weight=0)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=0)
 
         left=ttk.Frame(self)
-        left.grid(row=0,column=0, sticky="w", padx=8, pady=6)
+        left.grid(row=0,column=0, sticky="w", padx=8)
 
-        ttk.Label(left, text="Dunk Vision").grid(row=0, column=0, padx=(0,8))
+        ttk.Label(left, image=self.icon_photo).grid(row=0, column=0, padx=(0,8))
+        self.icon_photo=self.icon_photo
         ttk.Button(left, text="Home", command=on_home_button or (lambda:None)).grid(row=0, column=1, padx=3)
-        ttk.Button(left, text="Light/Dark", command=on_toggle_mode or (lambda:None)).grid(row=0, column=2, padx=3)
+        ttk.Button(left, text="Theme", command=on_toggle_mode or (lambda:None)).grid(row=0, column=2, padx=3)
 
         mid=ttk.Frame(self)
-        mid.grid(row=0, column=1, sticky="n", pady=6)
+        mid.grid(row=0, column=1)
 
         ttk.Button(mid, text="Undo", command=on_undo_action or (lambda:None)).grid(row=0, column=0, padx=3)
         ttk.Button(mid, text="Redo", command=on_redo_action or (lambda:None)).grid(row=0, column=1, padx=3)
@@ -258,19 +286,18 @@ class TopBar(ttk.Frame):
                 mid, text=quarter, value=quarter, variable=qvar,
                 command=(lambda qq=quarter: (on_select_quarter or (lambda _q: None))(qq))
             ).grid(row=0, column=2+index, padx=3)
+        ttk.Button(right, text="End Game", command=on_end_game or (lambda:None)).grid(row=0, column=2 + len(quarter), padx=(12,3))
         
         right=ttk.Frame(self)
-        right.grid(row=0, column=2, sticky="e", padx=8, pady=6)
+        right.grid(row=0, column=2, sticky="e", padx=8)
 
         ttk.Button(right, text="Save", command=on_save_game or (lambda:None)).grid(row=0, column=0, padx=3)
         ttk.Button(right, text="Reset", command=on_reset_game or (lambda:None)).grid(row=0, column=1, padx=3)
-        ttk.Button(right, text="End Game", command=on_end_game or (lambda:None)).grid(row=0, column=2, padx=3)
 
-        ttk.Button(right, text="Export Image", command=on_export_image or (lambda:None)).grid(row=0, column=3, padx=(12,3))
+        ttk.Button(right, text="Export Image", command=on_export_image or (lambda:None)).grid(row=0, column=3, padx=(16,3))
         ttk.Button(right, text="Export JSON", command=on_export_json or (lambda:None)).grid(row=0, column=4, padx=3)
         ttk.Button(right, text="Export CSV", command=on_export_csv or (lambda:None)).grid(row=0, column=5, padx=3)
 
-       
 
 class SideBar(ttk.Frame):
     def __init__(self, parent, controller = None): 
@@ -280,22 +307,33 @@ class SideBar(ttk.Frame):
         self.grid_propagate(False)
         self.configure(width = SIDE_WIDTH)
 
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        self.card = tk.Frame(
+            self, 
+            bg = "#E8EDF6",
+            highlightthickness=1,
+            highlightbackground= "#A8B3C5",
+        )
+        self.card.grid(row=0, column=0, sticky="nsew", padx=8, pady=10)
+        self.inner = ttk.Frame(self.card, padding=8)
+        self.inner.pack(fill="both", expand=True)
+
         style=ttk.Style(self)
         style.configure("Player.TButton", padding=4)
         style.configure("PlayerSelected.TButton", padding=4, relief="sunken")
 
         #Team Selector
-        ttk.Label(self, text="Team").grid(row=0, column=0, sticky="w", padx=8, pady=(10,2))
+        ttk.Label(self, text="Select Your Team").grid(row=0, column=0, sticky="w", padx=8, pady=(2,2))
         self.team_dropdown_var = tk.StringVar()
         self.team_dropdown = ttk.OptionMenu(self, self.team_dropdown_var, "")
         self.team_dropdown.grid(row=1, column=0, sticky="ew", padx=8)
-        self.refresh_team_dropdown()
-        self.team_dropdown_var.trace_add("write", lambda *_: self.on_team_change())
         
         #Player List Container
         self.player_list_frame = ttk.Frame(self,style="PlayerList.TFrame")
         self.player_list_frame.grid(row=2, column=0, sticky="nsew", padx=8, pady=(8,10))
-        self.rowconfigure(2, weight=1)
+        self.inner.rowconfigure(2, weight=1)
+        self.inner.columnconfigure(0, weight=1)
 
         #Add and Remove Buttons
         self.add_btn = ttk.Button(self, text="Add", command=self.add_player)
@@ -312,6 +350,8 @@ class SideBar(ttk.Frame):
         self.player_buttons = []
         self.selected_player_button = None #track selection
 
+        self.refresh_team_dropdown()
+        self.team_dropdown_var.trace_add("write", lambda *_: self.on_team_change())
         self.refresh_player_list()
         
     #Helper Functions 
@@ -352,6 +392,9 @@ class SideBar(ttk.Frame):
             b.configure(command=lambda btn=b: self.select_player_button(btn))
             b.pack(fill="x", padx=6, pady=2)
             self.player_buttons.append(b)
+
+    def set_card_colors(self, fill, border):
+        self.card.configure(bg=fill, highlightbackground=border)
 
     #Button Handlers 
     
@@ -420,7 +463,7 @@ class StatusBar(ttk.Frame):
         self.grid_propagate(False)
         self.configure(height = BAR_HEIGHT - 8)
 
-        self.grid_columnconfigure(0, weight = 0)
+        self.grid_columnconfigure(0, weight = 1)
         self.grid_columnconfigure(1, weight= 1)
 
         self.message_variable = tk.StringVar(value = "Ready.")
@@ -514,7 +557,3 @@ class DataBar(ttk.Frame):
             vars["missed"].set(s["missed"])
             vars["airball"].set(s["airball"])
             vars["pct"].set(pct)
-
-
-
-
