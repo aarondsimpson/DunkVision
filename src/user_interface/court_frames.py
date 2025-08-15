@@ -75,8 +75,6 @@ class CourtFrame(ttk.Frame):
 
         self.center_canvas=ScreenImage(self)
         self.center_canvas.grid(row=1, column=1, sticky="nsew")
-
-        self.after_idle(self.update_mode)
         
         self.databar = DataBar(self, controller=self)
         self.databar.grid(row=1, column=2, sticky="ns")
@@ -84,6 +82,7 @@ class CourtFrame(ttk.Frame):
         self.statusbar=StatusBar(self)
         self.statusbar.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(4,0))
 
+        self.after_idle(self.update_mode)
         self.refresh_stats()   
 
     def toggle_mode(self):
@@ -276,7 +275,7 @@ class TopBar(ttk.Frame):
         ttk.Button(left, text="Theme", command=on_toggle_mode or (lambda:None)).grid(row=0, column=2, padx=3)
 
         mid=ttk.Frame(self)
-        mid.grid(row=0, column=1, stick = "n", pady=6)
+        mid.grid(row=0, column=1, sticky = "n", pady=6)
 
         ttk.Button(mid, text="Undo", command=on_undo_action or (lambda:None)).grid(row=0, column=0, padx=3)
         ttk.Button(mid, text="Redo", command=on_redo_action or (lambda:None)).grid(row=0, column=1, padx=3)
@@ -301,16 +300,15 @@ class TopBar(ttk.Frame):
         ttk.Button(right, text="Save", command=on_save_game or (lambda:None)).grid(row=0, column=0, padx=3)
         ttk.Button(right, text="Reset", command=on_reset_game or (lambda:None)).grid(row=0, column=1, padx=3)
 
-        ttk.Button(right, text="Export Image", command=on_export_image or (lambda:None)).grid(row=0, column=3, padx=(16,3))
-        ttk.Button(right, text="Export JSON", command=on_export_json or (lambda:None)).grid(row=0, column=4, padx=3)
-        ttk.Button(right, text="Export CSV", command=on_export_csv or (lambda:None)).grid(row=0, column=5, padx=3)
+        ttk.Button(right, text="Export Image", command=on_export_image or (lambda:None)).grid(row=0, column=2, padx=(16,3))
+        ttk.Button(right, text="Export JSON", command=on_export_json or (lambda:None)).grid(row=0, column=3, padx=3)
+        ttk.Button(right, text="Export CSV", command=on_export_csv or (lambda:None)).grid(row=0, column=4, padx=3)
 
 
 class SideBar(ttk.Frame):
     def __init__(self, parent, controller = None): 
         super().__init__(parent)
         self.controller = controller
-        print("DEBUG: controller type in SideBar:", type(controller), flush=True)
         self.grid_propagate(False)
         self.configure(width = SIDE_WIDTH)
 
@@ -331,28 +329,28 @@ class SideBar(ttk.Frame):
         style.configure("PlayerSelected.TButton", padding=4, relief="sunken")
 
         #Team Selector
-        ttk.Label(self, text="Select Your Team").grid(row=0, column=0, sticky="w", padx=8, pady=(2,2))
+        ttk.Label(self.inner, text="Select Team").grid(row=0, column=0, sticky="w", padx=8, pady=(2,2))
         self.team_dropdown_var = tk.StringVar()
-        self.team_dropdown = ttk.OptionMenu(self, self.team_dropdown_var, "")
+        self.team_dropdown = ttk.OptionMenu(self.inner, self.team_dropdown_var, "")
         self.team_dropdown.grid(row=1, column=0, sticky="ew", padx=8)
         
         #Player List Container
-        self.player_list_frame = ttk.Frame(self,style="PlayerList.TFrame")
+        self.player_list_frame = ttk.Frame(self.inner, style="PlayerList.TFrame")
         self.player_list_frame.grid(row=2, column=0, sticky="nsew", padx=8, pady=(8,10))
         self.inner.rowconfigure(2, weight=1)
         self.inner.columnconfigure(0, weight=1)
 
         #Add and Remove Buttons
-        self.add_btn = ttk.Button(self, text="Add", command=self.add_player)
-        self.add_btn.grid(row=3, column=0, padx=8, pady=(6,4), sticky="ew")
-        
-        self.remove_btn = ttk.Button(self, text="Remove", command=self.remove_selected_player, state="disabled")
-        self.remove_btn.grid(row=4, column=0, padx=8, pady=(0,8), sticky="ew")
-        
-        ttk.Separator(self, orient="horizontal").grid(row=5, column=0, padx=8, pady=(0,6), sticky="ew")
-        
-        self.rename_btn = ttk.Button(self, text="Rename Team", command=self.rename_team)
-        self.rename_btn.grid(row=6, column=0, padx=9, pady=(0,10), sticky="ew")
+        self.add_btn = ttk.Button(self.inner, text="Add Player", command=self.add_player)
+        self.add_btn.grid(row = 3, column = 0, padx = 8, pady = (6,4), sticky = "ew")
+
+        self.remove_btn = ttk.Button(self.inner, text = "Remove Player", state = "disabled")
+        self.remove_btn.grid(row = 4, column = 0, padx = 8, pady = (0,8), sticky = "ew")
+
+        ttk.Separator(self.inner, orient = "horizontal").grid(row = 5, column = 0, padx = 8, pady= (0,6), sticky = "ew")
+
+        self.rename_btn = ttk.Button(self.inner, text = "Rename Team", command=self.rename_team)
+        self.rename_btn.grid(row = 6, column = 0, padx = 9, pady = (0,10), sticky = "ew")
 
         self.player_buttons = []
         self.selected_player_button = None #track selection
@@ -390,8 +388,7 @@ class SideBar(ttk.Frame):
             w.destroy()
         self.player_buttons.clear()
         self.selected_player_button=None
-        if hasattr(self, "remove_btn"):
-            self.remove_btn.configure(state="disabled")
+        self.remove_btn.configure(state="disabled")
 
         key = self.controller.selected_team_key.get()
         for role_or_name in self.controller.rosters[key]:
@@ -471,11 +468,10 @@ class StatusBar(ttk.Frame):
         self.configure(height = BAR_HEIGHT - 8)
 
         self.grid_columnconfigure(0, weight = 1)
-        self.grid_columnconfigure(1, weight= 1)
-
+        
         self.message_variable = tk.StringVar(value = "Ready.")
         ttk.Label(self, textvariable=self.message_variable).grid(
-            row = 0, column = 0, padx = 10, pady = 6, sticky = "w")
+            row = 0, column = 0, padx = 10, pady = 6, sticky = "ew")
 
     def set_status(self, text: str):
         self.message_variable.set(text)
