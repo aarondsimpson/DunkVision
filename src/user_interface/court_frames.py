@@ -322,7 +322,7 @@ class SideBar(ttk.Frame):
             highlightthickness=1,
             highlightbackground= "#A8B3C5",
         )
-        self.card.grid(row=0, column=0, sticky="nsew", padx=(8,0), pady=10)
+        self.card.grid(row=0, column=0, sticky="nsew", padx=8, pady=10)
         self.inner = ttk.Frame(self.card, padding=8)
         self.inner.pack(fill="both", expand=True)
 
@@ -346,7 +346,7 @@ class SideBar(ttk.Frame):
         self.add_btn = ttk.Button(self.inner, text="Add Player", command=self.add_player)
         self.add_btn.grid(row = 3, column = 0, padx = 8, pady = (6,4), sticky = "ew")
 
-        self.remove_btn = ttk.Button(self.inner, text = "Remove Player", state = "disabled")
+        self.remove_btn = ttk.Button(self.inner, text = "Remove Player", command=self.remove_selected_player, state = "disabled")
         self.remove_btn.grid(row = 4, column = 0, padx = 8, pady = (0,8), sticky = "ew")
 
         ttk.Separator(self.inner, orient = "horizontal").grid(row = 5, column = 0, padx = 8, pady= (0,6), sticky = "ew")
