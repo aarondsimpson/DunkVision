@@ -19,7 +19,7 @@ class ScreenImage(ttk.Frame):
         self._last_size: tuple[int, int] = (0, 0)
         self._image_id: int | None = None
 
-        self.load_image("start", "dv_start_screen_with_buttons.png")
+        self.load_image("start", "dv_start_screen.png")
         self.load_image("court_light", "court_light_mode.png")
         self.load_image("court_dark", "court_dark_mode.png")
 
@@ -102,15 +102,50 @@ class StartScreen(ttk.Frame):
         
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
+
         self.bg = ScreenImage(self)
         self.bg.grid(row=0, column=0, sticky="nsew")
         self.bg.show("start")
 
+        self._BASE_WIDTH, self._BASE_HEIGHT = 1366, 768
+        self._NEW_CX, self._NEW_CY, 566.5, 622.5
+        self._LOAD_CX, self._LOAD_CY, 796.5, 622.5
+
         new_button = ttk.Button(self, text = "New", command = self.new_session)
         load_button = ttk.Button(self, text = "Load", command = self.load_session)
 
-        new_button.place(relx=0.45, rely=0.62, anchor="center", width=120, height=40) #Later replace with image overlay
-        load_button.place(relx=0.60, rely=0.62, anchor="center", width=120, height=40)#Later replace with image overlay
+        self._new_win_id = self.bg.canvas.create_window(
+            self._NEW_CX, self._NEW_CY, window = new_button, anchor="center"
+        )
+        self._load_win_id = self.bg.canvas.create_window(
+            self._LOAD_CX, self._LOAD_CY, window = load_button, anchor="center"
+        )
+
+        self.bg.canvas.bind("<Configure>", self._position_buttons)
+        self.after_idle(lambda: self._position_buttons(None))
+
+    def _position_buttons(self, event):
+        c = self.bg.canvas
+        cw, ch = c.winfo_width(), c.winfo_height()
+
+        scale_x = cw / self._BASE_WIDTH
+        scale_y = ch / self._BASE_HEIGHT
+        scale = min(scale_x, scale_y)
+
+        scaled_width = self._BASE_WIDTH * scale
+        scaled_height = self._BASE_HEIGHT * scale
+
+        offset_x = (cw - scaled_width) / 2.0
+        offset_y = (ch - scaled_height) / 2.0
+
+        new_x = offset_x + self._NEW_CX * scale 
+        new_y = offset_y + self._NEW_CY * scale
+        load_x = offset_x + self._LOAD_CX * scale
+        load_y = offset_y + self._LOAD_CY *scale 
+
+        c.coords(self._new_win_id, new_x, new_y)
+        c.coords(self._load_win_id, load_x, load_y)
+  
 
     def new_session(self):
         self.controller.show_court_screen() 
@@ -124,6 +159,7 @@ class StartScreen(ttk.Frame):
             #CODE THIS LATER WHEN SAVE AND LOAD FUNCTIONS ARE BUILT
             self.controller.show_frame("CourtFrames")
             """
+
 
 class CourtScreen(ttk.Frame):
     def __init__(self, parent, controller):
