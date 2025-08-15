@@ -1,7 +1,11 @@
 from __future__ import annotations
 import tkinter as tk
+import sys
 from tkinter import ttk, messagebox
 from typing import Optional
+from pathlib import Path
+
+from src.config import ICON_ICO, ICON_PNG
 from .player_dialogs import resolve, confirm, info, error
 
 def add_player_dialog(parent: tk.Misc, team: str, positions: list[str]) -> Optional[dict]:
@@ -64,9 +68,24 @@ def rename_team_dialog(parent: tk.Misc, current_name:str) -> str | None:
     
     win = tk.Toplevel(parent)
     win.title("Rename Team")
-    win.transient(parent)
     win.resizable(False, False)
 
+    ico = Path(ICON_ICO)
+    png = Path(ICON_PNG)
+    
+    if sys.platform.startswith("win") and ico.is_file():
+        try:
+            win.iconbitmap(str(ico))
+        except tk.TclError:
+            pass
+    if png.is_file():
+        try:
+            win._icon_ref = tk.PhotoImage(file=str(png))
+            win.iconphoto(True, win._icon_ref)
+        except tk.TclError:
+            pass
+
+    win.transient(parent)
     win.grab_set()
 
     name_var = tk.StringVar(value=current_name)

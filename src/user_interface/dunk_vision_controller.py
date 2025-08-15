@@ -17,15 +17,25 @@ class DunkVisionApp(tk.Tk):
         if sys.platform.startswith("win"):
             try:
                 import ctypes
-                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
-                    u"com.dunkvision.app"
-                )
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(u"com.dunkvision.app")
             except Exception:
                 pass
 
-            icon_path = Path(__file__).parent.parent / "assets" / "icons" / "dv_app_icon.ico"
-            if icon_path.exists():
-                self.iconbitmap(str(icon_path))
+            ico = Path(ICON_ICO)
+            png = Path(ICON_PNG)
+            self._icon_refs = {}
+            
+            if sys.platform.startswith("win") and ico.is_file():
+                try: 
+                    self.iconbitmap(str(ico))
+                except tk.TclError: 
+                    pass
+            if png.is_file():
+                try: 
+                    self._icon_refs["app_png"] = tk.PhotoImage(file=str(png))
+                    self.wm_iconphoto(True, self._icon_refs["app_png"])
+                except tk.TclError:
+                    pass
 
         self.restore_geometry="1024x576+100+100"
         self.minsize(854, 480)
