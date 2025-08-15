@@ -74,7 +74,6 @@ class CourtFrame(ttk.Frame):
         self.sidebar=SideBar(self, controller=self)
         self.sidebar.grid(row=1, column=0, sticky="nsew")
 
-        self.center = CourtFrame(self.root, controller=self)
         self.center_canvas=ScreenImage(self)
         self.center_canvas.grid(row=1, column=1, sticky="nsew")
         

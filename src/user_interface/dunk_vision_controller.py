@@ -94,7 +94,7 @@ class DunkVisionApp(tk.Tk):
         if current != self.previous_state:
             if self.prevous_state == "zoomed" and current == "normal":
                 self.geometry(self.restore_geometry)
-                self.prevous_state=current
+            self.prevous_state=current
 
 
     def show_start_screen(self):
@@ -105,7 +105,7 @@ class DunkVisionApp(tk.Tk):
 
     def show_court_screen(self):
         self.center.grid_forget()
-        self.center=CourtFrame(self.root)
+        self.center=CourtFrame(self.root, controller=self)
         self.center.grid(row=1, column=1, sticky="nsew")
 
 
