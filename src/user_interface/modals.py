@@ -60,48 +60,54 @@ def add_player_dialog(parent: tk.Misc, team: str, positions: list[str]) -> Optio
 
 
 def rename_team_dialog(parent: tk.Misc, current_name:str) -> str | None:
+    master = parent.winfo_toplevel()
+    
     win = tk.Toplevel(parent)
     win.title("Rename Team")
     win.transient(parent)
-    win.grab(set)
+    win.resizable(False, False)
+
+    win.grab_set()
 
     name_var = tk.StringVar(value=current_name)
 
+    '''
     frm=ttk.Frame(win, padding=12)
     frm.grid(sticky="nsew")
     frm.grid_columnconfigure(1, weight=1)
+    '''
 
-    ttk.Label(frm, text="Team Name").grid(row=0, column=0, sticky="w", padx=4, pady=4)
-    entry = ttk.Entry(frm, textvariable=name_var)
-    entry.select_range(0, tk.END)
+    ttk.Label(win, text="Team Name").grid(row=0, column=0, padx=12, pady=(12,6), sticky="w")
+    name_var = tk.StringVar(value=current_name)
+    entry = ttk.Entry(win, textvariable=name_var, width=28)
+    entry.grid(row = 1, column= 0, padx = 12, pady=(0,12), sticky="ew")
     entry.focus_set()
+    win.columnconfigure(0, weight=1)
 
-    result:str | None=None
+    result: list[str | None] = [None]
     
     def on_ok():
-        nonlocal result
-        s = name_var.get().strip()
-        if not s:
-            messagebox.showwarning("Invalid Name", "Please enter a non-empty name.", parent=win)
-            return
-        result = s 
-        win.destroy()
+       val = name_var.get().strip()
+       result[0] = val if val != current_name else None
+       win.destroy()
+
     def on_cancel():
+        result[0] = None
         win.destroy()
 
-    btns = ttk.Frame(frm)
-    btns.grid(row=1, column=0, columnspan=2, pady=(10,0))
-    ttk.Buttons(btns, text="Cancel", command=on_cancel).grid(row=0, column=0, padx=6)
-    ttk.Buttons(btns, text="Ok", command=on_ok).grid(row=0, column=1, padx=6)
+    btns = ttk.Frame(win)
+    btns.grid(row=2, column=0, padx=12, pady=(0,12), sticky="e")
+    ttk.Button(btns, text="Cancel", command=on_cancel).grid(row=0, column=0, padx=(0,6))
+    ttk.Button(btns, text="OK", command=on_ok).grid(row=0, column=1)
 
     win.bind("<Return>", lambda _: on_ok())
-    win.bind("<Cancel>", lambda _: on_cancel()) 
+    win.bind("<Escape>", lambda _: on_cancel()) 
 
     win.update_idletasks()
-    x = parent.winfo_rootx() + (parent.winfo_width() - win.winfo_width()) // 2
-    y = parent.winfo_rooty() + (parent.winfo_height() - win.winfo_height()) // 2
-    win.geometry(f"+{x}+{y}")
+    px = parent.winfo_rootx() + (parent.winfo_width() - win.winfo_width()) // 2
+    py = parent.winfo_rooty() + (parent.winfo_height() - win.winfo_height()) // 2
+    win.geometry(f"+{px}+{py}")
 
     parent.wait_window(win)
-    return result
+    return result[0]
                                                         
