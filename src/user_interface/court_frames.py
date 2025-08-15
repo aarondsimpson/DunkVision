@@ -99,7 +99,6 @@ class CourtFrame(ttk.Frame):
         style.configure("TopBar.TFrame", background = cfg["bg"])
         style.configure("SideBar.TFrame", background = cfg["bg"])
         style.configure("StatusBar.TFrame", background = cfg["bg"])
-        style.configure("PlayerList.TFrame", background = cfg["list"])
         style.configure("DataBar.TFrame", background = cfg["bg"])
 
         self.topbar.configure(style="TopBar.TFrame")
@@ -323,7 +322,7 @@ class SideBar(ttk.Frame):
             highlightbackground= "#A8B3C5",
         )
         self.card.grid(row=0, column=0, sticky="nsew", padx=8, pady=10)
-        self.inner = ttk.Frame(self.card, padding=8)
+        self.inner = ttk.Frame(self.card, padding=8, style="CardInner.TFrame")
         self.inner.pack(fill="both", expand=True)
 
         style=ttk.Style(self)
@@ -401,6 +400,9 @@ class SideBar(ttk.Frame):
 
     def set_card_colors(self, fill, border):
         self.card.configure(bg=fill, highlightbackground=border)
+        style = ttk.Style(self)
+        style.configure("CardInner.TFrame", background=fill)
+        style.configure("PlayerList.TFrame", background=fill)
 
     #Button Handlers 
     
