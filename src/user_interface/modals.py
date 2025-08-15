@@ -1,15 +1,56 @@
 from __future__ import annotations
-import tkinter as tk
 import sys
+from pathlib import Path
+import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Optional
-from pathlib import Path
 
 from src.config import ICON_ICO, ICON_PNG
 from .player_dialogs import resolve, confirm, info, error
 
+#
+# Helper Functions
+#
+def _apply_window_icons(win: tk.Toplevel)-> None:
+    ico = Path(ICON_ICO)
+    png = Path(ICON_PNG)
+    if sys.platform.startswith("win") and ico.is_file():
+        try:
+            win.iconbitmap(str(ico))
+        except tk.TclError:
+            pass
+    if png.is_file():
+        try:
+            win._icon_ref = tk.PhotoImage(file=str(png))
+            win.iconphoto(True, win._icon_ref)
+        except tk.TclError:
+            pass    
+
+def _center_on_parent(win: tk.Toplevel, parent: tk.Misc, margin: int  = 16) -> None: 
+    win.update_idletasks()
+
+    parent = parent.winfo_toplevel()
+    parent_x, parent_y = parent.winfo_rootx(), parent.winfo_rooty()
+    parent_width, parent_height = parent.winfo_width(), parent.winfo_height()
+
+    ww, wh = win.winfo_reqwidth(), win.winfo_reqheight()
+
+    x = parent_x + (parent_width - ww) // 2
+    y = parent_y + (parent_height - wh) // 2
+
+    screen_x, screen_y = win.winfo_screenwidth(), win.winfo_screenheight()
+    x = max(margin, min(x, screen_x - ww - margin))
+    y = max(margin, min(y, screen_y - wh - margin))
+
+    win.geometry(f"+{x}+{y}")
+
+#
+#Dialogs and Modals
+#
+
 def add_player_dialog(parent: tk.Misc, team: str, positions: list[str]) -> Optional[dict]:
     win=tk.Toplevel(parent)
+    win.withdraw()
     win.title("Add Player")
     win.transient(parent)
     win.grab_set()
@@ -55,55 +96,35 @@ def add_player_dialog(parent: tk.Misc, team: str, positions: list[str]) -> Optio
     win.bind("<Escape>", lambda _: on_cancel())
 
     win.update_idletasks()
-    x=parent.winfo_rootx() + (parent.winfo_width() - win.winfo_width())//2
-    y=parent.winfo_rooty() + (parent.winfo_height() - win.winfo_height())//2
-    win.geometry(f"+{x}+{y}")
+    _center_on_parent(win, parent)
+    win.deiconify()
 
     parent.wait_window(win)
     return result                               
 
 
 def rename_team_dialog(parent: tk.Misc, current_name:str) -> str | None:
-    master = parent.winfo_toplevel()
-    
     win = tk.Toplevel(parent)
+    win.withdraw()
     win.title("Rename Team")
     win.resizable(False, False)
+    _apply_window_icons(win)
 
-    ico = Path(ICON_ICO)
-    png = Path(ICON_PNG)
-    
-    if sys.platform.startswith("win") and ico.is_file():
-        try:
-            win.iconbitmap(str(ico))
-        except tk.TclError:
-            pass
-    if png.is_file():
-        try:
-            win._icon_ref = tk.PhotoImage(file=str(png))
-            win.iconphoto(True, win._icon_ref)
-        except tk.TclError:
-            pass
-
-    win.transient(parent)
-    win.grab_set()
-
-    name_var = tk.StringVar(value=current_name)
-
-    '''
-    frm=ttk.Frame(win, padding=12)
+    frm = ttk.Frame(win, padding=12)
     frm.grid(sticky="nsew")
-    frm.grid_columnconfigure(1, weight=1)
-    '''
+    frm.grid_columnconfigure(0, weight=1)
 
-    ttk.Label(win, text="Team Name").grid(row=0, column=0, padx=12, pady=(12,6), sticky="w")
     name_var = tk.StringVar(value=current_name)
-    entry = ttk.Entry(win, textvariable=name_var, width=28)
-    entry.grid(row = 1, column= 0, padx = 12, pady=(0,12), sticky="ew")
+                            
+    ttk.Label(frm, text="Team Name").grid(row=0, column=0, padx=(0,6), sticky="w")
+    entry = ttk.Entry(frm, textvariable=name_var, width=28)
+    entry.grid(row=1, column=0, padx=0, pady=(0,12), sticky="ew")
     entry.focus_set()
-    win.columnconfigure(0, weight=1)
 
-    result: list[str | None] = [None]
+    btns = ttk.Frame(win)
+    btns.grid(row=2, column=0, pady=(0,0), sticky="e")
+    
+    result: list[str | None] = None
     
     def on_ok():
        val = name_var.get().strip()
@@ -114,8 +135,6 @@ def rename_team_dialog(parent: tk.Misc, current_name:str) -> str | None:
         result[0] = None
         win.destroy()
 
-    btns = ttk.Frame(win)
-    btns.grid(row=2, column=0, padx=12, pady=(0,12), sticky="e")
     ttk.Button(btns, text="Cancel", command=on_cancel).grid(row=0, column=0, padx=(0,6))
     ttk.Button(btns, text="OK", command=on_ok).grid(row=0, column=1)
 
@@ -123,10 +142,12 @@ def rename_team_dialog(parent: tk.Misc, current_name:str) -> str | None:
     win.bind("<Escape>", lambda _: on_cancel()) 
 
     win.update_idletasks()
-    px = parent.winfo_rootx() + (parent.winfo_width() - win.winfo_width()) // 2
-    py = parent.winfo_rooty() + (parent.winfo_height() - win.winfo_height()) // 2
-    win.geometry(f"+{px}+{py}")
+    _center_on_parent(win, parent)
+    win.deiconify()
+    win.grab_set()
+    win.focus_set()
 
     parent.wait_window(win)
     return result[0]
                                                         
+

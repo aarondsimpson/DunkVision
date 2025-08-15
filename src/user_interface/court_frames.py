@@ -16,7 +16,7 @@ SIDE_WIDTH = 220
 MODE = {
     "light": {
         "image": "court_light", 
-        "bg": "#BCA382",
+        "bg": "#8A6E53",
         "list": "#BCA382"},
     "dark": {
         "image": "court_dark", 
