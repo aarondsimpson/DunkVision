@@ -20,9 +20,9 @@ MODE = {
         "list": "#BCA382"},
     "dark": {
         "image": "court_dark", 
-        "bg": "#7C90C5",
-        "list": "#7C90C5"}
-    }
+        "bg": "#41597F",
+        "list": "#41597F",
+    }}
 
 class CourtFrame(ttk.Frame):
     def __init__(self, parent, controller=None):
@@ -49,6 +49,7 @@ class CourtFrame(ttk.Frame):
 
         #Layout Scaffold
         self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, minsize=SIDE_WIDTH)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=0)
 
@@ -71,7 +72,7 @@ class CourtFrame(ttk.Frame):
         self.topbar.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0,4))
 
         self.sidebar=SideBar(self, controller=self)
-        self.sidebar.grid(row=1, column=0, sticky="ns")
+        self.sidebar.grid(row=1, column=0, sticky="nsew")
 
         self.center_canvas=ScreenImage(self)
         self.center_canvas.grid(row=1, column=1, sticky="nsew")
@@ -310,17 +311,18 @@ class SideBar(ttk.Frame):
         super().__init__(parent)
         self.controller = controller
         self.grid_propagate(False)
-        self.configure(width = SIDE_WIDTH)
+        self.configure(width = SIDE_WIDTH, padding=0)
 
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
+
         self.card = tk.Frame(
             self, 
             bg = "#E8EDF6",
             highlightthickness=1,
             highlightbackground= "#A8B3C5",
         )
-        self.card.grid(row=0, column=0, sticky="nsew", padx=8, pady=10)
+        self.card.grid(row=0, column=0, sticky="nsew", padx=(8,0), pady=10)
         self.inner = ttk.Frame(self.card, padding=8)
         self.inner.pack(fill="both", expand=True)
 
