@@ -108,8 +108,8 @@ class StartScreen(ttk.Frame):
         self.bg.show("start")
 
         self._BASE_WIDTH, self._BASE_HEIGHT = 1366, 768
-        self._NEW_CX, self._NEW_CY, 566.5, 622.5
-        self._LOAD_CX, self._LOAD_CY, 796.5, 622.5
+        self._NEW_CX, self._NEW_CY = 566.5, 622.5
+        self._LOAD_CX, self._LOAD_CY = 796.5, 622.5
 
         new_button = ttk.Button(self, text = "New", command = self.new_session)
         load_button = ttk.Button(self, text = "Load", command = self.load_session)
@@ -121,8 +121,13 @@ class StartScreen(ttk.Frame):
             self._LOAD_CX, self._LOAD_CY, window = load_button, anchor="center"
         )
 
-        self.bg.canvas.bind("<Configure>", self._position_buttons)
+        self.bg.canvas.bind("<Configure>", self._position_buttons, add="+")
         self.after_idle(lambda: self._position_buttons(None))
+
+        self.bg.show("start")
+
+        self.bg.canvas.tag_raise(self._new_win_id)
+        self.bg.canvas.tag_raise(self._load_win_id)
 
     def _position_buttons(self, event):
         c = self.bg.canvas

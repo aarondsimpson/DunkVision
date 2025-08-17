@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox
-from typing import Optional
+from typing import Optional, Dict
 
 from src.config import ICON_ICO, ICON_PNG
 from .player_dialogs import resolve, confirm, info, error
@@ -48,86 +48,129 @@ def _center_on_parent(win: tk.Toplevel, parent: tk.Misc, margin: int  = 16) -> N
 #Dialogs and Modals
 #
 
-def add_player_dialog(parent: tk.Misc, team: str, positions: list[str]) -> Optional[dict]:
+def add_player_dialog(
+        parent: tk.Misc,
+        team_names: Dict[str, tk.StringVar], 
+        default_team: str = "home", 
+        positions: list[str] | None = None,
+) -> Optional[Dict]:
+
+    positions = positions or ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"]
+
     win=tk.Toplevel(parent)
     win.withdraw()
     win.title("Add Player")
     win.transient(parent)
+    win.resizable(False, False)
     win.grab_set()
-
-    name_var = tk.StringVar()
-    pos_var = tk.StringVar(value=positions[0] if positions else "")
-    team_var =tk.StringVar(value=team)
 
     frm = ttk.Frame(win, padding=12)
     frm.grid(sticky="nsew")
-    for index in range(2):
-        frm.grid_columnconfigure(index, weight=1)
+    win.grid_columnconfigure(0, weight = 1)
 
-    ttk.Label(frm, text="Name").grid(row=0, column=0, sticky="w", padx=4, pady=4)
-    ttk.Entry(frm, textvariable=name_var).grid(row=0, column=1, sticky="ew", padx=4, pady=4)
+    ttk.Label(frm, text="Name").grid(row=0, column=0, sticky="w")
+    name_var = tk.StringVar()
+    name_ent = ttk.Entry(frm, textvariable=name_var, width = 28)
+    name_ent.grid(row = 1, column = 0, sticky = "ew", pady = (2, 10))
 
-    ttk.Label(frm, text="Position").grid(row=1, column=0, sticky="w", padx=4, pady=4)
-    ttk.OptionMenu(frm, pos_var, pos_var.get(), *positions).grid(row=1, columns=1, sticky="ew", padx=4, pady=4)
+    ttk.Label(frm, text="Position").grid(row=2, column=0, sticky="w")
+    pos_var = tk.StringVar(value=positions[0])
+    pos_cb = ttk.Combobox(frm, textvariable=pos_var, values = positions, state = "readonly")
+    pos_cb.grid(row = 3, column = 0, sticky= "ew", pady = (2, 10))
+                                         
+    ttk.Label(frm, text="Team").grid(row=4, column=0, sticky="w")
+    team_keys = list(team_names.keys())
+    team_labels = [team_names[k].get() for k in team_keys]
+    label_to_key = {lbl: k for lbl, k in zip(team_labels, team_keys)}
 
-    ttk.Label(frm, text="Team").grid(row=2, column=0, sticky="w",padx=4, pady=4)
-    ttk.Entry(frm, textvariable=team_var, state="readonly").grid(row=2, column=1, sticky="ew", padx=4, pady=4)
+    default_label = team_names.get(default_team, tk.StringVar(value="")).get()
+    team_var = tk.StringVar(value = default_label if default_label in team_labels else team_labels[0])
 
-    result: Optional[dict] = None
+    team_cb = ttk.Combobox(frm, textvariable=team_var, values = team_labels, state="readonly")
+    team_cb.grid(row = 5, column = 0, sticky = "ew", pady = (2,10))
+                                         
+    btns = ttk.Frame(frm)
+    btns.grid(row = 6, column = 0, sticky = "e")
+
+    result = list[Optional[dict]] = [None]
 
     def on_ok():
-        nonlocal result 
         name = name_var.get().strip()
-        if not name: 
-            messagebox.showwarning("Missing Name", "Enter a Player Name.", parent=win)
+        if not name:
+            messagebox.showwarning("Missing Name", "Enter a Player Name", parent = win)
+            name_ent.focus_set()
             return
-        result={"name": name, "position": pos_var.get(), "team": team_var.get()}
-        win.destroy
-
-    def on_cancel():
+        pos = pos_var.get()
+        team_label = team_var.get()
+        team_key = label_to_key(team_label, default_team)
+        result[0]={"name": name, "position": pos, "team_key": team_key}
         win.destroy()
 
-    btns = ttk.Frame(frm)
-    btns.grid(row=3, column=0, columnspan=2, pady=(10,0))
-    ttk.Button(btns, text="Cancel", command=on_cancel).grid(row=0, column=0, padx=6)
-    ttk.Button(btns, text="Add", command=on_ok).grid(row=0, column=1, padx=6)
+    def on_cancel() -> None:
+        result[0] = None 
+        win.destroy()
+
+    ttk.Button(btns, text="Cancel", command=on_cancel).grid(row=0, column=0, padx=(0,6))
+    ttk.Button(btns, text="Add", command=on_ok).grid(row=0, column=1)
 
     win.bind("<Return>", lambda _: on_ok())
     win.bind("<Escape>", lambda _: on_cancel())
-
-    win.update_idletasks()
+    
+    name_ent.focus_set()
     _center_on_parent(win, parent)
     win.deiconify()
 
     parent.wait_window(win)
-    return result                               
+    return result [0]
+
+def _center_on_parent(win: tk.Toplevel, parent: tk.Misc) -> None: 
+    win.update_idletasks()
+    try: 
+        px, py = parent.winfo_rootx(), parent.winfo_rooty()
+        pw, ph = parent.winfo_width(), parent.winfo_height()
+        ww, wh = win.winfo_width(), win.winfo_height()
+        x = px + (pw - ww) // 2
+        y = py + (ph - wh) // 2
+    except Exception:
+        sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
+        ww, wh = win.winfo_width(), win.winfo_height()
+        x = (sw - ww) // 2
+        y = (sh - wh) // 2
+        
+    win.geometry(f"+{x}+{y}")                        
 
 
-def rename_team_dialog(parent: tk.Misc, current_name:str) -> str | None:
+def rename_team_dialog(parent: tk.Misc, current_name:str) -> Optional[str]:
     win = tk.Toplevel(parent)
-    win.withdraw()
     win.title("Rename Team")
+    win.transient(parent)
     win.resizable(False, False)
-    _apply_window_icons(win)
+
+    win.grab_set()
+    parent.update_idletasks()
 
     frm = ttk.Frame(win, padding=12)
     frm.grid(sticky="nsew")
     frm.grid_columnconfigure(0, weight=1)
+    frm.grid_rowconfigure(0, weight=1)
 
     name_var = tk.StringVar(value=current_name)
                             
     ttk.Label(frm, text="Team Name").grid(row=0, column=0, padx=(0,6), sticky="w")
     entry = ttk.Entry(frm, textvariable=name_var, width=28)
     entry.grid(row=1, column=0, padx=0, pady=(0,12), sticky="ew")
-    entry.focus_set()
+    entry.select_range(0, tk.END)
 
     btns = ttk.Frame(win)
     btns.grid(row=2, column=0, pady=(0,0), sticky="e")
     
-    result: list[str | None] = None
+    result = [None]
     
     def on_ok():
        val = name_var.get().strip()
+       if not val: 
+           messagebox.showwarning("Missing Name", "Please enter a team name", parent=win)
+           return
        result[0] = val if val != current_name else None
        win.destroy()
 
@@ -140,14 +183,18 @@ def rename_team_dialog(parent: tk.Misc, current_name:str) -> str | None:
 
     win.bind("<Return>", lambda _: on_ok())
     win.bind("<Escape>", lambda _: on_cancel()) 
+    win.protocol("WM_DELETE_WINDOW", on_cancel)
 
+    entry.focus_set()
     win.update_idletasks()
-    _center_on_parent(win, parent)
-    win.deiconify()
-    win.grab_set()
-    win.focus_set()
+    try: 
+        px, py = parent.winfo_rootx(), parent.winfo_rooty()
+        pw, ph = parent.winfo_width(), parent.winfo_height()
+        ww, wh = win.winfo_width(), win.winfo_height()
+        win.geometry(f"+{px + (pw-ww)//2}+{py + (ph-wh)//2}")
+    except Exception: 
+        pass 
 
-    parent.wait_window(win)
+    win.wait_window()
     return result[0]
-                                                        
 

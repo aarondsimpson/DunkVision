@@ -90,9 +90,9 @@ class DunkVisionApp(tk.Tk):
     def on_configure_state_change(self, _):
         current=self.state()
         if current != self.previous_state:
-            if self.prevous_state == "zoomed" and current == "normal":
+            if self.previous_state == "zoomed" and current == "normal":
                 self.geometry(self.restore_geometry)
-            self.prevous_state=current
+            self.previous_state=current
 
 
     def show_start_screen(self):

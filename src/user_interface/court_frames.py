@@ -422,21 +422,39 @@ class SideBar(ttk.Frame):
         self.remove_btn.configure(state="normal")
 
     def add_player(self):
-        key = self.controller.selected_team_key.get()
-        team_label = self.controller.team_names[key].get()
+        current_key = self.controller.selected_team_key.get()
         positions = ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"]
-        res = add_player_modal(self, team_label, positions)
+        res = add_player_modal(
+            parent = self, team_names = self.controller.team_names,
+            default_team = current_key, 
+            positions = positions
+        )
         if not res:
             return
-        self.controller.rosters[key].append(res["name"])
+        
+        team_key = res["team_key"]
+        player_name = res["name"]
+        positions = res["position"]
+
+        self.controller.rosters[team_key].append(player_name)
+
+        if team_key != current_key:
+            self.controller.selected_team_key.set(team_key)
+            self.refresh_team_dropdown()
+        
         self.refresh_player_list()
-        for btn in self.player_buttons:
-            if btn.cget("text") == res["name"]:
-                self.select_player_button(btn)
-                break
+        self._select_button_by_text(player_name)
+
         if hasattr(self.controller, "set_status"):
+            team_label = self.controller.team_names[team_key].get()
             self.controller.set_status(f"Added {res['name']} ({res['position']}) to {team_label}")
             
+    def _select_button_by_text(self, text: str):
+        for btn in getattr(self, "player buttons", []): 
+            if btn.cget("text") == text: 
+                self.select_player_button(btn)
+                break
+
     def remove_selected_player(self):
         if not self.selected_player_button:
             return
