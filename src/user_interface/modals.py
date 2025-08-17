@@ -92,7 +92,7 @@ def add_player_dialog(
     btns = ttk.Frame(frm)
     btns.grid(row = 6, column = 0, sticky = "e")
 
-    result = list[Optional[dict]] = [None]
+    result: list[Optional[dict]] = [None]
 
     def on_ok():
         name = name_var.get().strip()
@@ -102,7 +102,7 @@ def add_player_dialog(
             return
         pos = pos_var.get()
         team_label = team_var.get()
-        team_key = label_to_key(team_label, default_team)
+        team_key = label_to_key.get(team_label, default_team)
         result[0]={"name": name, "position": pos, "team_key": team_key}
         win.destroy()
 
@@ -121,23 +121,7 @@ def add_player_dialog(
     win.deiconify()
 
     parent.wait_window(win)
-    return result [0]
-
-def _center_on_parent(win: tk.Toplevel, parent: tk.Misc) -> None: 
-    win.update_idletasks()
-    try: 
-        px, py = parent.winfo_rootx(), parent.winfo_rooty()
-        pw, ph = parent.winfo_width(), parent.winfo_height()
-        ww, wh = win.winfo_width(), win.winfo_height()
-        x = px + (pw - ww) // 2
-        y = py + (ph - wh) // 2
-    except Exception:
-        sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
-        ww, wh = win.winfo_width(), win.winfo_height()
-        x = (sw - ww) // 2
-        y = (sh - wh) // 2
-        
-    win.geometry(f"+{x}+{y}")                        
+    return result [0]                  
 
 
 def rename_team_dialog(parent: tk.Misc, current_name:str) -> Optional[str]:
