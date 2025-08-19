@@ -10,3 +10,17 @@
     return ZONE_MAP.get(color, {"name": "Unknown", "is_3_point": None})
 '''
 #STEP SIX IN COURT_INTERACTIVITY
+
+from application_logic.zoning_configuration import MASK
+from application_logic.court_mask_color_ledger import(
+    ZONE_COLORS, LINE_COLORS, PLAY_COLORS, NO_CLICK_COLORS
+)
+
+def resolve_zone(ix: int, iy: int):
+    r, g, b, _ = MASK.px[ix, iy]
+    rgb = MASK.get_zone_at(ix, iy)
+
+    if rgb in LINE_COLORS: return "line", LINE_COLORS[rgb]
+    if rgb in NO_CLICK_COLORS: return "no_click", NO_CLICK_COLORS[rgb]
+    if rgb in PLAY_COLORS: return "play", PLAY_COLORS[rgb]
+    return "unknown", f"{rgb}"

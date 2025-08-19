@@ -12,3 +12,8 @@ ZONE_MAP = {
 }
 '''
 #STEP FIVE IN ZONING
+
+from application_logic.mask_manager import MaskManager
+
+MASK_PATH = "assets/mask_images/court_mask.png"
+MASK = MaskManager(MASK_PATH)
