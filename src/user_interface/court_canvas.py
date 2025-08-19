@@ -100,7 +100,7 @@ class ScreenImage(ttk.Frame):
             src = self.images.get(self._current_key)
             if src is None: 
                 print("[export_png] No current image set")
-                return 
+                return False
         
             width = max(self.canvas.winfo_width(), 1)
             height = max(self.canvas.winfo_height(), 1)
@@ -112,7 +112,6 @@ class ScreenImage(ttk.Frame):
             y = (height - d_h) // 2
 
             bg = self.canvas.cget("bg")
-            bg_rgb = (0,0,0)
 
             try: 
                 bg_rgb = ImageColor.getrgb(bg)
@@ -127,7 +126,9 @@ class ScreenImage(ttk.Frame):
             resized = src.resize((d_w, d_h), Image.LANCZOS).convert("RGB")
             out.paste(resized, (x,y))
             out.save(path)
-        
+
+            return True 
+             
         except Exception as e:
             print(f"[export_png] ERROR: {e!r}")
             return False

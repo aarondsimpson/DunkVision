@@ -456,7 +456,7 @@ class SideBar(ttk.Frame):
             self.controller.set_status(f"Added {res['name']} ({res['position']}) to {team_label}")
             
     def _select_button_by_text(self, text: str):
-        for btn in getattr(self, "player buttons", []): 
+        for btn in self.player_buttons: 
             if btn.cget("text") == text: 
                 self.select_player_button(btn)
                 break

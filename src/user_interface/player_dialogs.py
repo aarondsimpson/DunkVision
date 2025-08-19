@@ -30,8 +30,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "title": "Export Failed", 
         "message": 
             "Sorry, I couldn't save the image to {path}"
-        },
-    },
+        }
+    }
 #Will add more as they appear
 #Will add "load" section for load-related messages
 #Will add "save" section for save-related messages 
@@ -42,7 +42,6 @@ def resolve(key_or_title: str, message: str | None = None, **fmt) -> tuple[str, 
         "confirm_quit": "quit", 
         "exit": "quit",
     }
-    
     key = ALIAS.get(key, key)
 
     if key in MESSAGES:
