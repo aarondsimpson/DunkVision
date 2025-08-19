@@ -2,11 +2,12 @@ import json
 import csv
 import tkinter as tk
 import os 
-from tkinter import ttk, filedialog
-from PIL import ImageGrab, Image, ImageTk
+from tkinter import ttk, filedialog, messagebox
+from PIL import Image, ImageTk
+from pathlib import Path
 
 from .court_canvas import ScreenImage
-from .player_dialogs import confirm, info, error
+from .player_dialogs import confirm, info, error, resolve
 from .modals import add_player_dialog as add_player_modal, rename_team_dialog
 from src import config
 
@@ -162,14 +163,19 @@ class CourtFrame(ttk.Frame):
         )
         if not path: 
             return
-        c=self.center_canvas.canvas
-        x=c.winfo_rootx()
-        y=c.winfo_rooty()
-        w=x+c.winfo_width()
-        h=y+c.winfo_height()
-        img = ImageGrab.grab(bbox=(x, y, w, h))
-        img.save(path)
-        self.set_status(f"Image Exported: {path}")
+        
+        ok = self.center_canvas.export_png(path)
+        p = Path(path)
+    
+        if ok and p.exists():
+            self.set_status(f"Image Exported: {p}")
+            title, msg = resolve("export success", path=p)
+            messagebox.showinfo(title, msg)
+        else: 
+            self.set_status("Export Failed.")
+            title, msg = resolve("export_fail", path=p)
+            messagebox.showerror(title, msg)
+
     
     def export_json(self):
         path = filedialog.asksaveasfilename(

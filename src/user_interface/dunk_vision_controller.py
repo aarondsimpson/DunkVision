@@ -118,7 +118,7 @@ class DunkVisionApp(tk.Tk):
       
       
     def on_app_close(self):
-        if confirm("quit"):
+        if confirm("quit", parent=self):
             self.destroy()
 
     

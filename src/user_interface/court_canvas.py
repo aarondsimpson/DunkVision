@@ -1,6 +1,6 @@
 import tkinter as tk 
 from tkinter import ttk, filedialog
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageColor
 from src.config import SCREEN_IMAGES_DIR
 from pathlib import Path
 
@@ -93,6 +93,45 @@ class ScreenImage(ttk.Frame):
         else:
             self.canvas.coords(self._image_id, x, y)
             self.canvas.itemconfigure(self._image_id, image=self._photo)
+
+    def export_png(self, path: str) -> bool: 
+        try: 
+            self.update_idletasks()
+            src = self.images.get(self._current_key)
+            if src is None: 
+                print("[export_png] No current image set")
+                return 
+        
+            width = max(self.canvas.winfo_width(), 1)
+            height = max(self.canvas.winfo_height(), 1)
+
+            scale = min(width / NATIVE_WIDTH, height / NATIVE_HEIGHT)
+            d_w = max(1, int(NATIVE_WIDTH * scale))
+            d_h = max(1, int(NATIVE_HEIGHT * scale))
+            x = (width - d_w) // 2
+            y = (height - d_h) // 2
+
+            bg = self.canvas.cget("bg")
+            bg_rgb = (0,0,0)
+
+            try: 
+                bg_rgb = ImageColor.getrgb(bg)
+            except Exception: 
+                try: 
+                    r16, g16, b16 = self.winfo_rgb(bg)
+                    bg_rgb = (r16//256, g16//256, b16//256)
+                except Exception:
+                    bg_rgb = (0, 0, 0)
+
+            out = Image.new("RGB", (width, height), bg_rgb)
+            resized = src.resize((d_w, d_h), Image.LANCZOS).convert("RGB")
+            out.paste(resized, (x,y))
+            out.save(path)
+        
+        except Exception as e:
+            print(f"[export_png] ERROR: {e!r}")
+            return False
+
 
 
 class StartScreen(ttk.Frame):
