@@ -31,3 +31,9 @@ ZONE_COLORS = {
 (255, 243, 232): "Left No Click - 0", #FFF3E8
 
 }
+
+LINE_COLORS = {rgb: name for rgb, name in ZONE_COLORS.items()
+               if "Three Point Line" in name or "Free Throw Line" in name} 
+NO_CLICK_COLORS = {rgb: name for rgb, name in ZONE_COLORS.item()
+                   if "No Click" in name}
+PLAY_COLORS = set(ZONE_COLORS.keys()) - set(LINE_COLORS.keys()) - set(NO_CLICK_COLORS.keys())
