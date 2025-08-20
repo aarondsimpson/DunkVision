@@ -26,6 +26,8 @@ class ScreenImage(ttk.Frame):
         # Bind to the CANVAS so we catch real size changes
         self.canvas.bind("<Configure>", self._on_canvas_configure)
 
+        self._draw_info = None
+
     def load_image(self, key: str, filename: str) -> None:
         path = SCREEN_IMAGES_DIR / filename
         try:
@@ -88,12 +90,30 @@ class ScreenImage(ttk.Frame):
         x = (cw - iw) // 2
         y = (ch - ih) // 2
 
+        self._draw_info = (x, y, iw, ih, src.width, src.height, mode)
+
         self._photo = ImageTk.PhotoImage(img)
         if self._image_id is None:
             self._image_id = self.canvas.create_image(x, y, anchor="nw", image=self._photo)
         else:
             self.canvas.coords(self._image_id, x, y)
             self.canvas.itemconfigure(self._image_id, image=self._photo)
+
+    def canvas_to_image(self, cx: int, cy: int) -> tuple[int, int] | None: 
+        if not self._draw_info:
+            return None
+        x, y, dw, dh, sw, sh, _mode = self._draw_info
+        if cx < x or cy < y or cx >= x  + dw or cy >= y + dh:
+            return None
+        
+        scale_x = sw / max(1, dw)
+        scale_y = sh / max(1, dw)
+        ix = int((cx - x) * scale_x)
+        iy = int((cy -y) * scale_y)
+
+        if ix < 0 or iy < 0 or ix >= sw or iy >= sh:
+            return None
+        return ix, iy
 
     def export_png(self, path: str) -> bool: 
         try: 

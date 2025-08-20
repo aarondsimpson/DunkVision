@@ -9,6 +9,7 @@ from pathlib import Path
 from .court_canvas import ScreenImage
 from .player_dialogs import confirm, info, error, resolve
 from .modals import add_player_dialog as add_player_modal, rename_team_dialog
+from application_logic.zoning import resolve_zone
 from src import config
 
 BAR_HEIGHT = 60
@@ -77,6 +78,9 @@ class CourtFrame(ttk.Frame):
 
         self.center_canvas=ScreenImage(self)
         self.center_canvas.grid(row=1, column=1, sticky="nsew")
+        c = self.center_canvas.canvas
+        c.bind("<Button-1>", self._on_canvas_click)
+        self._shot_markers = []
         
         self.databar = DataBar(self, controller=self)
         self.databar.grid(row=1, column=2, sticky="ns")
@@ -248,7 +252,39 @@ class CourtFrame(ttk.Frame):
         team_name = self.team_names[team].get()
         outcome = "Made" if made else ("Airball" if airball else "Missed")
         self.set_status(f"Recorded Shot: {team_name} - {outcome} (Q{self.quarter.get()[-1]}, x:{x}, y:{y})")
+
+    def _on_canvas_click(self, event):
+        mapped = self.center_canvas.canvas_to_image(event.x, event.y)
+        if mapped is None:
+            self.set_status("Click outside image.")
+            return 
+        
+        ix, iy = mapped
+        kind, label = resolve_zone(ix, iy)
+
+        if kind in ("line", "no_click"):
+            self.set_status(f"{label} - not a playable zone.")
+            return 
+        if kind in ("out of bonds", "unknown"):
+            self.set_status(label)
+            return 
+        
+        team_key = self.selected_team_key.get()
+        self.set_Status(f"{self.team_names[team_key].get()}: Click at {label} (ix: {ix}, iy: {iy})")
+        self._draw_marker(ix, iy)
              
+        
+    def _draw_marker(self, ix: int, iy: int):
+        if not self.center_canvas._draw_info:
+            return
+        x, y, dw, dh, sw, sh, _ = self.center_canvas._draw_info
+        cx = x + (ix / sw) * dw
+        cy = y + (iy / sh) * dh
+        r = 4
+        marker = self.center_canvas.canvas.create_oval(
+            cx - r, cy - r, cx + r, cy + r, outline="", fill = "#ff3b30"
+        )
+        self._shot_markers.append(marker)
 
 class TopBar(ttk.Frame):
     def __init__(
