@@ -10,6 +10,7 @@ from src.user_interface.court_canvas import ScreenImage
 from src.user_interface.player_dialogs import confirm, info, error, resolve
 from src.user_interface.modals import add_player_dialog as add_player_modal, rename_team_dialog
 from src.application_logic.zoning import resolve_zone
+from src.application_logic.zoning_configuration import shot_distance_from_hoop 
 from src import config
 
 BAR_HEIGHT = 60
@@ -264,18 +265,37 @@ class CourtFrame(ttk.Frame):
             return 
         
         ix, iy = mapped
-        kind, label = resolve_zone(ix, iy)
 
-        if kind in ("no_click"):
+        kind, label = resolve_zone(ix, iy)
+        kind_norm = str(kind).lower().replace(" ", "_")
+
+        if kind_norm == "no_click": 
             self.set_status(f"{label} - not a playable zone.")
             return 
-        if kind in ("out of bonds", "unknown"):
+        if kind_norm in ("out_of_bonds", "unknown"):
             self.set_status(label)
             return 
         
-        team_key = self.selected_team_key.get()
-        self.set_status(f"{self.team_names[team_key].get()}: Click at {label} (ix: {ix}, iy: {iy})")
+        r_ft, dx_ft, dy_ft = shot_distance_from_hoop(ix, iy)
+        
         self._draw_marker(ix, iy)
+
+        team_key = self.selected_team_key.get()
+        team_name = self.team_names[team_key].get()
+        status_text = (
+            f"{team_name}: {label} - {r_ft:.1f} ft"
+            f" (dx={dx_ft:.1f}, dy={dy_ft:.1f} [ix={ix}, iy={iy}]"
+            ) 
+        self.set_status(status_text)
+        print("[shot]", status_text)
+
+        '''
+        self.record_shot(
+            team=team_key, x=ix, y=iy, made=False, airball=False,
+            meta={"zone": label, "r_ft": f_ft, "dx_ft": dx_ft, "dy_ft": dy_ft,
+            "kind": kind_norm}
+            )
+        '''
              
         
     def _draw_marker(self, ix: int, iy: int):
