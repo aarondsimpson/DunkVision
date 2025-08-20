@@ -81,6 +81,10 @@ class CourtFrame(ttk.Frame):
         c = self.center_canvas.canvas
         c.bind("<Button-1>", self._on_canvas_click)
         self._shot_markers = []
+
+        from src.application_logic.zoning_configuration import MASK
+        print("COURT_ART source size:", self.center_canvas.images["court_dark"].size)
+        print("MASK size:", MASK.img.size)
         
         self.databar = DataBar(self, controller=self)
         self.databar.grid(row=1, column=2, sticky="ns")
@@ -270,16 +274,15 @@ class CourtFrame(ttk.Frame):
             return 
         
         team_key = self.selected_team_key.get()
-        self.set_Status(f"{self.team_names[team_key].get()}: Click at {label} (ix: {ix}, iy: {iy})")
+        self.set_status(f"{self.team_names[team_key].get()}: Click at {label} (ix: {ix}, iy: {iy})")
         self._draw_marker(ix, iy)
              
         
     def _draw_marker(self, ix: int, iy: int):
-        if not self.center_canvas._draw_info:
-            return
-        x, y, dw, dh, sw, sh, _ = self.center_canvas._draw_info
-        cx = x + (ix / sw) * dw
-        cy = y + (iy / sh) * dh
+        pos = self.center_canvas.image_to_canvas(ix, iy)
+        if not pos: 
+            return 
+        cx, cy = pos 
         r = 4
         marker = self.center_canvas.canvas.create_oval(
             cx - r, cy - r, cx + r, cy + r, outline="", fill = "#ff3b30"

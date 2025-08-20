@@ -90,7 +90,12 @@ class ScreenImage(ttk.Frame):
         x = (cw - iw) // 2
         y = (ch - ih) // 2
 
-        self._draw_info = (x, y, iw, ih, src.width, src.height, mode)
+        self._draw_info = (
+            x, y, 
+            iw, ih, 
+            src.width, src.height, 
+            mode
+        )
 
         self._photo = ImageTk.PhotoImage(img)
         if self._image_id is None:
@@ -99,21 +104,41 @@ class ScreenImage(ttk.Frame):
             self.canvas.coords(self._image_id, x, y)
             self.canvas.itemconfigure(self._image_id, image=self._photo)
 
+        #DEBUG
+        self.canvas.delete("_debug_rect")
+        self.canvas.create_rectangle(x, y, x+iw, y+ih, outline="#ffaa00", width=2, tags="_debug_rect")
+        self.canvas.tag_raise("_debug_rect")
+
     def canvas_to_image(self, cx: int, cy: int) -> tuple[int, int] | None: 
         if not self._draw_info:
             return None
-        x, y, dw, dh, sw, sh, _mode = self._draw_info
-        if cx < x or cy < y or cx >= x  + dw or cy >= y + dh:
+        
+        draw_x, draw_y, draw_w, draw_h, src_w, src_h, _ = self._draw_info
+
+        if cx < draw_x or cy < draw_y or cx >= draw_x  + draw_w or cy >= draw_y + draw_h:
             return None
         
-        scale_x = sw / max(1, dw)
-        scale_y = sh / max(1, dw)
-        ix = int((cx - x) * scale_x)
-        iy = int((cy -y) * scale_y)
+        tx = (cx - draw_x) / max(1, draw_w)
+        ty = (cy - draw_y) / max(1, draw_h)
 
-        if ix < 0 or iy < 0 or ix >= sw or iy >= sh:
-            return None
-        return ix, iy
+        ix = round(tx * (src_w - 1))
+        iy = round(ty * (src_h - 1))
+
+        ix = max(0, min(src_w - 1, ix))
+        iy = max(0, min(src_h - 1, iy))
+        return ix, iy 
+    
+    def image_to_canvas(self, ix: int, iy: int) -> tuple[float, float] | None: 
+        if not self._draw_info: 
+            return None 
+        draw_x, draw_y, draw_w, draw_h, src_w, src_h, _ = self._draw_info
+
+        tx = (ix + 0.5) / max(1, src_w)
+        ty = (iy + 0.5) / max(1, src_h)
+
+        cx = draw_x + tx * draw_w 
+        cy = draw_y + ty * draw_h
+        return cx, cy
 
     def export_png(self, path: str) -> bool: 
         try: 

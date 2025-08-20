@@ -8,15 +8,15 @@ class MaskManager:
         self.px = self.img.load()
 
     def get_zone_at(self, ix: int, iy: int) -> tuple[str, str]: 
-        if ix < 0 or iy < 0 or ix >= self.img.width or iy <= self.img.height:
-            return ("Unknown", "Out of Bounds")
-        r, g, b, a = self.px[ix, iy]
+        w, h = self.img.width, self.img.height
+        print(f"[mask] size = {self.img.width} x {self.img.height} ix, iy = {ix}, {iy}")
+        if not (0 <= ix < w and 0 <= iy < h):
+            return ("OUT_OF_BOUNDS", "Out of Bounds")
+    
+        r, g, b, _ = self.px[ix, iy]
         rgb = (r, g, b)
 
-        if rgb in LINE_COLORS:
-            return ("LINE", ZONE_COLORS[rgb])
-        if rgb in NO_CLICK_COLORS: 
-            return ("NO_CLICK", ZONE_COLORS[rgb])
-        if rgb in ZONE_COLORS: 
-            return ("ZONE", ZONE_COLORS[rgb])
-        return ("Unknown", f"Unmapped color {rgb}")
+        if rgb in LINE_COLORS: return ("LINE", ZONE_COLORS[rgb])
+        if rgb in NO_CLICK_COLORS: return ("NO_CLICK", ZONE_COLORS[rgb])
+        if rgb in ZONE_COLORS: return ("ZONE", ZONE_COLORS[rgb])
+        return ("UNKNOWN", f"Unmapped color {rgb}")
