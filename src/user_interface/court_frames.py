@@ -594,17 +594,18 @@ class DataBar(ttk.Frame):
             "shots": tk.IntVar(value=0),
             "made": tk.IntVar(value=0),
             "missed": tk.IntVar(value=0),
-            "airball": tk.IntVar(value=0),
-            "pct": tk.StringVar(value=0),   
+            "accuracy_fg": tk.IntVar(value="-"),
+            "avg_made_ft": tk.StringVar(value="-"),
+            "avg_missed_ft": tk.StringVar(value="-"),
+            "heading": tk.StringVar(value="-"),   
         }
-        vars["heading"] = tk.StringVar(value="")
 
         box.configure(labelwidget=ttk.Label(box, textvariable=vars["heading"]))
 
         r=0
         ttk.Label(box, text="Shots Taken:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["shots_taken"]).grid(row=r, column=1, sticky="e"); r+=1
-        ttk.Label(box, text="Shots Made:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["shots_made"]).grid(row=r, column=1, sticky="e"); r+=1
-        ttk.Label(box, text="Shots Missed:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["shots_missed"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Shots Made:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["made"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Shots Missed:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["missed"]).grid(row=r, column=1, sticky="e"); r+=1
         ttk.Label(box, text="Accuracy (FG%):").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["accuracy_fg"]).grid(row=r, column=1, sticky="e"); r+=1
         ttk.Label(box, text="Average Made Distance:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["avg_made_ft"]).grid(row=r, column=1, sticky="e"); r+=1
         ttk.Label(box, text="Average Missed Distance:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["avg_missed_ft"]).grid(row=r, column=1, sticky="e"); r+=1
@@ -615,34 +616,48 @@ class DataBar(ttk.Frame):
         return box
     
     def _sync_heading(self, team_key: str):
-        team_name = self.controller.team_names[team_key].get()
+        team_name = self.controller.team_names.get(team_key, tk.StringVar(value=team_key.title())).get()
         self._team_vars[team_key]["heading"].set(f"{team_name} Stats")
 
     def refresh_from_points(self, points: list[dict]):
         stats = {
-            "home": {"shots": 0, "made": 0, "missed": 0, "airball": 0},
-            "away": {"shots": 0, "made": 0, "missed": 0, "airball": 0},
+            "home": {"shots": 0, "made": 0, "missed": 0, "made_dists": [], "miss_dists": []},
+            "away": {"shots": 0, "made": 0, "missed": 0, "made_dists": [], "miss_dists": []},
         }
 
         for p in points or []:
             team = p.get("team")
-            if team not in stats:
+            if team not in stats: 
                 continue
-            stats[team]["shots"] += 1
-            if p.get("airball"):
-                stats[team]["airball"] += 1
-            if p.get("made"):
-                stats[team]["made"] += 1
-            else:
-                stats[team]["missed"] += 1  # treat non-made as miss unless you separate airballs
 
-        for team_key in ("home", "away"):
+            s = stats[team]
+            s["shots"] += 1
+            if p.get("made"):
+                s["made"] += 1
+                if "r_ft" in p: 
+                    s["make_dists"].append(p["r_ft"])
+            else: 
+                s["missed"] += 1
+                if "r_ft" in p: 
+                    s["miss_dists"].append(p["r_ft"])
+        
+
+        def fmt_avg(lst):
+            if lst: 
+                return f"{(sum(lst) / len(lst)):.1f} ft" 
+            return "-"
+    
+        for team_key in ("home", "away"): 
             s = stats[team_key]
-            shots, made = s["shots"], s["made"]
-            pct = f"{(made / shots) * 100:.1f}%" if shots else "-"
+            shots = s["shots"]
+            made = s["made"]
+            missed = s["missed"]
+            pct = f"{(made / shots * 100):.1f}%" if shots else "-"
+                
             vars = self._team_vars[team_key]
             vars["shots"].set(shots)
             vars["made"].set(made)
-            vars["missed"].set(s["missed"])
-            vars["airball"].set(s["airball"])
-            vars["pct"].set(pct)
+            vars["missed"].set(missed)
+            vars["accuracy_fg"].set(pct)
+            vars["avg_made_ft"].set(fmt_avg(s["made_dists"]))
+            vars["avg_missed_ft"].set(fmt_avg(s["miss_dists"]))
