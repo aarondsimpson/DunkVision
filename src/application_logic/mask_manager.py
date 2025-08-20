@@ -5,7 +5,7 @@ class MaskManager:
     def __init__(self, path: str): 
         with Image.open(path) as im:
             self.img = im.convert("RGBA").copy()
-        self.px = self.image.load()
+        self.px = self.img.load()
 
     def get_zone_at(self, ix: int, iy: int) -> tuple[str, str]: 
         if ix < 0 or iy < 0 or ix >= self.img.width or iy <= self.img.height:
