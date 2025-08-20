@@ -282,10 +282,7 @@ class CourtFrame(ttk.Frame):
 
         team_key = self.selected_team_key.get()
         team_name = self.team_names[team_key].get()
-        status_text = (
-            f"{team_name}: {label} - {r_ft:.1f} ft"
-            f" (dx={dx_ft:.1f}, dy={dy_ft:.1f} [ix={ix}, iy={iy}]"
-            ) 
+        status_text = (f"{team_name}: {label} - {r_ft:.1f} ft") 
         self.set_status(status_text)
         print("[shot]", status_text)
 
