@@ -17,10 +17,5 @@ from application_logic.court_mask_color_ledger import(
 )
 
 def resolve_zone(ix: int, iy: int):
-    r, g, b, _ = MASK.px[ix, iy]
-    rgb = MASK.get_zone_at(ix, iy)
-
-    if rgb in LINE_COLORS: return "line", LINE_COLORS[rgb]
-    if rgb in NO_CLICK_COLORS: return "no_click", NO_CLICK_COLORS[rgb]
-    if rgb in PLAY_COLORS: return "play", PLAY_COLORS[rgb]
-    return "unknown", f"{rgb}"
+    kind, name = MASK.get_zone_at(ix, iy)
+    return kind.lower(), name

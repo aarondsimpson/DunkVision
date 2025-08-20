@@ -3,7 +3,8 @@ from application_logic.court_mask_color_ledger import ZONE_COLORS, LINE_COLORS, 
 
 class MaskManager: 
     def __init__(self, path: str): 
-        self.img = Image.open(path).convert("RGBA")
+        with Image.open(path) as im:
+            self.img = im.convert("RGBA").copy()
         self.px = self.image.load()
 
     def get_zone_at(self, ix: int, iy: int) -> tuple[str, str]: 

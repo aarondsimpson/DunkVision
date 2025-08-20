@@ -14,6 +14,10 @@ ZONE_MAP = {
 #STEP FIVE IN ZONING
 
 from application_logic.mask_manager import MaskManager
+from pathlib import Path
 
-MASK_PATH = "assets/mask_images/court_mask.png"
+MASK_PATH = Path("assets/mask_images/court_mask.png")
+if not MASK_PATH.is_file():
+    raise FileNotFoundError(f"Court mask not found at {MASK_PATH}")
+
 MASK = MaskManager(MASK_PATH)
