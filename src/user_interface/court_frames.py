@@ -602,11 +602,12 @@ class DataBar(ttk.Frame):
         box.configure(labelwidget=ttk.Label(box, textvariable=vars["heading"]))
 
         r=0
-        ttk.Label(box, text="Shots:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["shots"]).grid(row=r, column=1, sticky="e"); r+=1
-        ttk.Label(box, text="Made:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["made"]).grid(row=r, column=1, sticky="e"); r+=1
-        ttk.Label(box, text="Missed:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["missed"]).grid(row=r, column=1, sticky="e"); r+=1
-        ttk.Label(box, text="Airball:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["airball"]).grid(row=r, column=1, sticky="e"); r+=1
-        ttk.Label(box, text="FG%:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["pct"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Shots Taken:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["shots_taken"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Shots Made:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["shots_made"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Shots Missed:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["shots_missed"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Accuracy (FG%):").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["accuracy_fg"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Average Made Distance:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["avg_made_ft"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Average Missed Distance:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["avg_missed_ft"]).grid(row=r, column=1, sticky="e"); r+=1
 
         if not hasattr(self, "_team_vars"):
             self._team_vars = {}
