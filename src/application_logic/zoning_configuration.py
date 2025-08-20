@@ -13,7 +13,7 @@ ZONE_MAP = {
 '''
 #STEP FIVE IN ZONING
 
-from application_logic.mask_manager import MaskManager
+from src.application_logic.mask_manager import MaskManager
 from pathlib import Path
 
 MASK_PATH = Path("assets/mask_images/court_mask.png")

@@ -1,5 +1,5 @@
 from PIL import Image 
-from application_logic.court_mask_color_ledger import ZONE_COLORS, LINE_COLORS, PLAY_COLORS, NO_CLICK_COLORS
+from src.application_logic.court_mask_color_ledger import ZONE_COLORS, LINE_COLORS, PLAY_COLORS, NO_CLICK_COLORS
 
 class MaskManager: 
     def __init__(self, path: str): 

@@ -6,7 +6,7 @@ from tkinter import ttk, messagebox
 from typing import Optional, Dict
 
 from src.config import ICON_ICO, ICON_PNG
-from .player_dialogs import resolve, confirm, info, error
+from src.user_interface.player_dialogs import resolve, confirm, info, error
 
 #
 # Helper Functions

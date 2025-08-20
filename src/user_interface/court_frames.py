@@ -6,10 +6,10 @@ from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 from pathlib import Path
 
-from .court_canvas import ScreenImage
-from .player_dialogs import confirm, info, error, resolve
-from .modals import add_player_dialog as add_player_modal, rename_team_dialog
-from application_logic.zoning import resolve_zone
+from src.user_interface.court_canvas import ScreenImage
+from src.user_interface.player_dialogs import confirm, info, error, resolve
+from src.user_interface.modals import add_player_dialog as add_player_modal, rename_team_dialog
+from src.application_logic.zoning import resolve_zone
 from src import config
 
 BAR_HEIGHT = 60
