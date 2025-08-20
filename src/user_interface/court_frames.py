@@ -243,6 +243,7 @@ class CourtFrame(ttk.Frame):
     def record_shot(self, *, team: str, x: int, y: int, made: bool, airball: bool=False, meta: dict|None=None):
         point = {
             "team": team, 
+            "player": self.get_selected_player(),
             "x": int(x), "y": int(y),
             "made": bool(made), "airball": bool(airball),
             "quarter": self.quarter.get(),
@@ -294,7 +295,6 @@ class CourtFrame(ttk.Frame):
             )
         '''
              
-        
     def _draw_marker(self, ix: int, iy: int):
         pos = self.center_canvas.image_to_canvas(ix, iy)
         if not pos: 
@@ -305,6 +305,15 @@ class CourtFrame(ttk.Frame):
             cx - r, cy - r, cx + r, cy + r, outline="", fill = "#ff3b30"
         )
         self._shot_markers.append(marker)
+
+
+    def get_selected_player(self) -> str | None: 
+        try: 
+            btn = self.sidebar.select_player_button
+            return btn.cget("text") if btn else None 
+        except Exception: 
+            return None 
+
 
 class TopBar(ttk.Frame):
     def __init__(
@@ -479,8 +488,10 @@ class SideBar(ttk.Frame):
             except:
                 pass
         btn.configure(style="PlayerSelected.TButton")
-        self.selected_player_button = btn
-        self.remove_btn.configure(state="normal")
+        self.selected_player_button = btn if self.selected_player_button is not btn else None
+        self.remove_btn.configure(state="normal" if self.select_player_button else "disabled")
+        if hasattr(self.controller, "refresh_stats"):
+            self.controller.refresh_stats()
 
     def add_player(self):
         current_key = self.controller.selected_team_key.get()
@@ -576,6 +587,7 @@ class DataBar(ttk.Frame):
         )
         self.home_section = self._make_team_section(self, team_key="home", row=1)
         self.away_section = self._make_team_section(self, team_key="away", row=2)
+        self.player_section = self._make_player_section(self, row = 3)
 
         for key, name_var in self.controller.team_names.items():
             name_var.trace_add("write", lambda *_, k=key: self._sync_heading(k))
@@ -603,7 +615,7 @@ class DataBar(ttk.Frame):
         box.configure(labelwidget=ttk.Label(box, textvariable=vars["heading"]))
 
         r=0
-        ttk.Label(box, text="Shots Taken:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["shots_taken"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Shots Taken:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["shots"]).grid(row=r, column=1, sticky="e"); r+=1
         ttk.Label(box, text="Shots Made:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["made"]).grid(row=r, column=1, sticky="e"); r+=1
         ttk.Label(box, text="Shots Missed:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["missed"]).grid(row=r, column=1, sticky="e"); r+=1
         ttk.Label(box, text="Accuracy (FG%):").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["accuracy_fg"]).grid(row=r, column=1, sticky="e"); r+=1
@@ -641,12 +653,41 @@ class DataBar(ttk.Frame):
                 if "r_ft" in p: 
                     s["miss_dists"].append(p["r_ft"])
         
+        player_name = None
+        if hasattr(self.controller, "get_selected_player"):
+            player_name = self.controller.get_selected_player()
 
         def fmt_avg(lst):
             if lst: 
                 return f"{(sum(lst) / len(lst)):.1f} ft" 
             return "-"
     
+        if not player_name: 
+            pv = self._player_vars
+            pv["heading"].set("Selected Player: -")
+            pv["shots"].set(0); pv["made"].set(0); pv["missed"].set(0)
+            pv["accuracy_fg"].set("-"); pv["avg_made_ft"].set("-"); pv["avg_missed_ft"].set("-")
+        else: 
+            pshots = []
+            for p in (points or []):
+                if p.get("player") == player_name:
+                    pshots.append(p)
+            shots = len(pshots)
+            made = sum(1 for p in pshots if p.get("made"))
+            missed = shots - made 
+            made_d = [p.get("r_ft") for p in pshots if p.get("made") and isinstance(p.get("f_ft"), (int, float))]
+            missed_d = [p.get("r_ft") for p in pshots if not p.get("made") and isinstance(p.get("f_ft"), (int, float))]
+            fg = f"{(made / shots * 100):.1f}%" if shots else "-"
+
+            pv = self._player_vars
+            pv["heading"].set(f"Selected Player: {player_name}")
+            pv["shots"].set(shots)
+            pv["made"].set(made)
+            pv["missed"].set(missed)
+            pv["accuracy_fg"].set(fg)
+            pv["avg_made_ft"].set(fmt_avg(made_d))
+            pv["avg_missed_ft"].set(fmt_avg(missed_d))
+
         for team_key in ("home", "away"): 
             s = stats[team_key]
             shots = s["shots"]
@@ -661,3 +702,32 @@ class DataBar(ttk.Frame):
             vars["accuracy_fg"].set(pct)
             vars["avg_made_ft"].set(fmt_avg(s["made_dists"]))
             vars["avg_missed_ft"].set(fmt_avg(s["miss_dists"]))
+
+
+    def _make_player_section(self, parent, row: int):
+        box = ttk.LabelFrame(parent, text="", padding=8)
+        box.grid(row = row, column = 0, sticky = "nsew", padx = 8, pady = (0,8))
+        box.grid_columnconfigure(1, weight = 1)
+
+        vars = {
+            "heading": tk.StringVar(value="Selected Player: _"), 
+            "shots": tk.IntVar(value=0), 
+            "made": tk.IntVar(value=0),
+            "missed": tk.IntVar(value=0),
+            "accuracy_fg": tk.StringVar(value="-"),
+            "avg_made_ft": tk.StringVar(value="-"),
+            "avg_missed_ft": tk.StringVar(value="-"),
+        }
+        box.configure(labelwidget=ttk.Label(box, textvariable=vars["heading"]))
+
+        r=0
+        ttk.Label(box, text="Shots Taken:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["shots"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Shots Made:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["made"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Shots Missed:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["missed"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Accuracy (FG%):").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["accuracy_fg"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Average Made Distance:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["avg_made_ft"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Average Missed Distance:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["avg_missed_ft"]).grid(row=r, column=1, sticky="e"); r+=1
+
+        self._player_vars = vars 
+        return box 
+    
