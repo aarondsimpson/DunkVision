@@ -428,18 +428,20 @@ class SideBar(ttk.Frame):
 
     def add_player(self):
         current_key = self.controller.selected_team_key.get()
-        positions = ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"]
+        position_choices = ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"]
+       
         res = add_player_modal(
-            parent = self, team_names = self.controller.team_names,
+            parent = self, 
+            team_names = self.controller.team_names,
             default_team = current_key, 
-            positions = positions
+            positions = position_choices,
         )
         if not res:
             return
         
         team_key = res["team_key"]
         player_name = res["name"]
-        positions = res["positions"]
+        position = res["position"]
 
         self.controller.rosters[team_key].append(player_name)
 
@@ -452,7 +454,7 @@ class SideBar(ttk.Frame):
 
         if hasattr(self.controller, "set_status"):
             team_label = self.controller.team_names[team_key].get()
-            self.controller.set_status(f"Added {res['name']} ({res['position']}) to {team_label}")
+            self.controller.set_status(f"Added {player_name} ({position}) to {team_label}")
             
     def _select_button_by_text(self, text: str):
         for btn in self.player_buttons: 
