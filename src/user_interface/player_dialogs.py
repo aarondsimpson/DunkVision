@@ -41,6 +41,8 @@ def resolve(key_or_title: str, message: str | None = None, **fmt) -> tuple[str, 
     ALIAS = {
         "confirm_quit": "quit", 
         "exit": "quit",
+        "export success": "export_success",
+        "export fail": "export_fail"
     }
     key = ALIAS.get(key, key)
 

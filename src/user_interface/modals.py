@@ -64,6 +64,8 @@ def add_player_dialog(
     win.resizable(False, False)
     win.grab_set()
 
+    _apply_window_icons()
+
     frm = ttk.Frame(win, padding=12)
     frm.grid(sticky="nsew")
     win.grid_columnconfigure(0, weight = 1)
@@ -132,6 +134,8 @@ def rename_team_dialog(parent: tk.Misc, current_name:str) -> Optional[str]:
 
     win.grab_set()
     parent.update_idletasks()
+
+    _apply_window_icons()
 
     frm = ttk.Frame(win, padding=12)
     frm.grid(sticky="nsew")

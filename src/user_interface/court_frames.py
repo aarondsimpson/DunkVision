@@ -169,7 +169,7 @@ class CourtFrame(ttk.Frame):
     
         if ok and p.exists():
             self.set_status(f"Image Exported: {p}")
-            title, msg = resolve("export success", path=p)
+            title, msg = resolve("export_success", path=p)
             messagebox.showinfo(title, msg)
         else: 
             self.set_status("Export Failed.")
@@ -276,7 +276,6 @@ class TopBar(ttk.Frame):
         left.grid(row=0,column=0, sticky="w", padx=8)
 
         ttk.Label(left, image=self.icon_photo).grid(row=0, column=0, padx=(0,8))
-        self.icon_photo=self.icon_photo
         ttk.Button(left, text="Home", command=on_home_button or (lambda:None)).grid(row=0, column=1, padx=3)
         ttk.Button(left, text="Theme", command=on_toggle_mode or (lambda:None)).grid(row=0, column=2, padx=3)
 
@@ -440,7 +439,7 @@ class SideBar(ttk.Frame):
         
         team_key = res["team_key"]
         player_name = res["name"]
-        positions = res["position"]
+        positions = res["positions"]
 
         self.controller.rosters[team_key].append(player_name)
 

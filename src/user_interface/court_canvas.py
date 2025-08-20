@@ -30,7 +30,8 @@ class ScreenImage(ttk.Frame):
         path = SCREEN_IMAGES_DIR / filename
         try:
             if path.exists():
-                self.images[key] = Image.open(path).convert("RGBA")
+                with Image.open(path) as im:
+                    self.images[key] = im.convert("RGBA").copy()
             else:
                 print(f"[ScreenImage] Missing file: {path}")
         except Exception as e:
@@ -145,8 +146,7 @@ class StartScreen(ttk.Frame):
 
         self.bg = ScreenImage(self)
         self.bg.grid(row=0, column=0, sticky="nsew")
-        self.bg.show("start")
-
+        
         self._BASE_WIDTH, self._BASE_HEIGHT = 1366, 768
         self._NEW_CX, self._NEW_CY = 566.5, 622.5
         self._LOAD_CX, self._LOAD_CY = 796.5, 622.5
@@ -218,4 +218,4 @@ class CourtScreen(ttk.Frame):
         self.bg.show("court_dark")
 
         court_label = ttk.Label(self, text="Placeholder")
-        court_label.grid(row=0, column=0, padx=20, pady=(60, 20), sticky = "nw")
+        court_label.grid(row=1, column=0, padx=20, pady=(60, 20), sticky = "nw")
