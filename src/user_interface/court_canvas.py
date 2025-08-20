@@ -104,10 +104,11 @@ class ScreenImage(ttk.Frame):
             self.canvas.coords(self._image_id, x, y)
             self.canvas.itemconfigure(self._image_id, image=self._photo)
 
-        #DEBUG
+        '''Draws Debugging Rectangle
         self.canvas.delete("_debug_rect")
         self.canvas.create_rectangle(x, y, x+iw, y+ih, outline="#ffaa00", width=2, tags="_debug_rect")
         self.canvas.tag_raise("_debug_rect")
+        '''
 
     def canvas_to_image(self, cx: int, cy: int) -> tuple[int, int] | None: 
         if not self._draw_info:
