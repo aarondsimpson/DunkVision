@@ -266,7 +266,7 @@ class CourtFrame(ttk.Frame):
         ix, iy = mapped
         kind, label = resolve_zone(ix, iy)
 
-        if kind in ("line", "no_click"):
+        if kind in ("no_click"):
             self.set_status(f"{label} - not a playable zone.")
             return 
         if kind in ("out of bonds", "unknown"):
