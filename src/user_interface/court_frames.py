@@ -8,7 +8,7 @@ from pathlib import Path
 
 from src.user_interface.court_canvas import ScreenImage
 from src.user_interface.player_dialogs import confirm, info, error, resolve
-from src.user_interface.modals import add_player_dialog as add_player_modal, rename_team_dialog
+from src.user_interface.modals import add_player_dialog as add_player_modal, rename_team_dialog, shot_result_dialog
 from src.application_logic.zoning import resolve_zone
 from src.application_logic.zoning_configuration import shot_distance_from_hoop 
 from src import config
@@ -240,10 +240,13 @@ class CourtFrame(ttk.Frame):
         if hasattr(self, "databar") and hasattr(self.databar, "refresh_from_points"):
             self.databar.refresh_from_points(self.data_points)
 
-    def record_shot(self, *, team: str, x: int, y: int, made: bool, airball: bool=False, meta: dict|None=None):
+    def record_shot(self, *, team: str, x: int, y: int, 
+                    made: bool, airball: bool=False, 
+                    meta: dict|None=None,
+                    status_text: str | None=None):
+                
         point = {
             "team": team, 
-            "player": self.get_selected_player(),
             "x": int(x), "y": int(y),
             "made": bool(made), "airball": bool(airball),
             "quarter": self.quarter.get(),
@@ -255,9 +258,12 @@ class CourtFrame(ttk.Frame):
         self.redo_stack.clear()
         self.refresh_stats()
 
-        team_name = self.team_names[team].get()
-        outcome = "Made" if made else ("Airball" if airball else "Missed")
-        self.set_status(f"Recorded Shot: {team_name} - {outcome} (Q{self.quarter.get()[-1]}, x:{x}, y:{y})")
+        if status_text is None: 
+            team_name = self.team_names[team].get()
+            outcome = "Made" if made else ("Airball" if airball else "Missed")
+            self.set_status(f"Recorded Shot: {team_name} - {outcome} (Q{self.quarter.get()[-1]}, x:{x}, y:{y})")
+        else: 
+            self.set_status(status_text)
 
     def _on_canvas_click(self, event):
         mapped = self.center_canvas.canvas_to_image(event.x, event.y)
@@ -266,53 +272,60 @@ class CourtFrame(ttk.Frame):
             return 
         
         ix, iy = mapped
-
+        
         kind, label = resolve_zone(ix, iy)
         kind_norm = str(kind).lower().replace(" ", "_")
 
         if kind_norm == "no_click": 
             self.set_status(f"{label} - not a playable zone.")
             return 
-        if kind_norm in ("out_of_bonds", "unknown"):
+        if kind_norm in ("out_of_bounds", "unknown"):
             self.set_status(label)
             return 
         
-        r_ft, dx_ft, dy_ft = shot_distance_from_hoop(ix, iy)
+        player_name = self.sidebar.get_selected_player_name()
+        if not player_name:
+            self.set_status("Select a player first.")
+            return 
         
-        self._draw_marker(ix, iy)
+        r_ft, dx_ft, dy_ft = shot_distance_from_hoop(ix, iy)
+
+        res = shot_result_dialog(self)
+        if res is None: 
+            return
+        made = bool(res)
+        
+        self._draw_marker(ix, iy, made=made)
 
         team_key = self.selected_team_key.get()
         team_name = self.team_names[team_key].get()
-        status_text = (f"{team_name}: {label} - {r_ft:.1f} ft") 
-        self.set_status(status_text)
-        print("[shot]", status_text)
+        status_text = f"{team_name}: {player_name} - {label} - {r_ft:.1f} ft (Q{self.quarter.get()[-1]})"
+        
+        meta = {"player": player_name, "zone": label,
+                "r_ft": r_ft, "dx_ft": dx_ft, "dy_ft": dy_ft}
 
-        '''
         self.record_shot(
-            team=team_key, x=ix, y=iy, made=False, airball=False,
-            meta={"zone": label, "r_ft": f_ft, "dx_ft": dx_ft, "dy_ft": dy_ft,
-            "kind": kind_norm}
-            )
-        '''
+            team=team_key, 
+            x=ix, y=iy, 
+            made=made, airball=False,
+            meta=meta, status_text=status_text)
+
              
-    def _draw_marker(self, ix: int, iy: int):
+    def _draw_marker(self, ix: int, iy: int, *, made:bool):
         pos = self.center_canvas.image_to_canvas(ix, iy)
         if not pos: 
             return 
         cx, cy = pos 
         r = 4
+        fill = "#2ecc71" if made else "#e74c3c"
         marker = self.center_canvas.canvas.create_oval(
-            cx - r, cy - r, cx + r, cy + r, outline="", fill = "#ff3b30"
+            cx - r, cy - r, cx + r, cy + r, outline="", fill = fill 
         )
         self._shot_markers.append(marker)
 
 
     def get_selected_player(self) -> str | None: 
-        try: 
-            btn = self.sidebar.select_player_button
-            return btn.cget("text") if btn else None 
-        except Exception: 
-            return None 
+        return getattr (self.sidebar, "selected_player_name", None)
 
 
 class TopBar(ttk.Frame):
@@ -425,6 +438,7 @@ class SideBar(ttk.Frame):
 
         self.player_buttons = []
         self.selected_player_button = None #track selection
+        self.selected_player_name = None
 
         self.refresh_team_dropdown()
         self.team_dropdown_var.trace_add("write", lambda *_: self.on_team_change())
@@ -453,6 +467,8 @@ class SideBar(ttk.Frame):
         if key != self.controller.selected_team_key.get():
             self.controller.selected_team_key.set(key)
             self.refresh_player_list()
+            if hasattr(self.controller, "refresh_stats"):
+                self.controller.refresh_stats
 
     def refresh_player_list(self):
         for w in self.player_list_frame.winfo_children():
@@ -478,18 +494,28 @@ class SideBar(ttk.Frame):
     
     def select_player_button(self, btn: ttk.Button):
         if self.selected_player_button is btn:
-            btn.configure(style="Player.TButton")
+            try: 
+                self.selected_player_button.configure(style="Player.TButton")
+            except Exception: 
+                pass
             self.selected_player_button=None
+            self.selected_player_name=None
             self.remove_btn.configure(state="disabled")
+            if hasattr(self.controller, "refresh_stats"):
+                self.controller.refresh_stats()
             return
+
         if self.selected_player_button is not None:
             try:
                 self.selected_player_button.configure(style="Player.TButton")
             except:
                 pass
+
         btn.configure(style="PlayerSelected.TButton")
-        self.selected_player_button = btn if self.selected_player_button is not btn else None
-        self.remove_btn.configure(state="normal" if self.select_player_button else "disabled")
+        self.selected_player_button = btn 
+        self.selected_player_name = btn.cget("text")
+        self.remove_btn.configure(state="normal")
+
         if hasattr(self.controller, "refresh_stats"):
             self.controller.refresh_stats()
 
@@ -554,7 +580,14 @@ class SideBar(ttk.Frame):
             self.controller.rename_team(team_key)
         self.refresh_team_dropdown()
                 
-
+    def get_selected_player_name(self) -> str | None: 
+        if self.selected_player_button: 
+            try: 
+                return self.selected_player_button.cget("text")
+            except Exception: 
+                return None
+        return None 
+    
 
 class StatusBar(ttk.Frame): 
     def __init__(self, parent): 
@@ -606,7 +639,7 @@ class DataBar(ttk.Frame):
             "shots": tk.IntVar(value=0),
             "made": tk.IntVar(value=0),
             "missed": tk.IntVar(value=0),
-            "accuracy_fg": tk.IntVar(value="-"),
+            "accuracy_fg": tk.StringVar(value="-"),
             "avg_made_ft": tk.StringVar(value="-"),
             "avg_missed_ft": tk.StringVar(value="-"),
             "heading": tk.StringVar(value="-"),   
@@ -647,15 +680,23 @@ class DataBar(ttk.Frame):
             if p.get("made"):
                 s["made"] += 1
                 if "r_ft" in p: 
-                    s["make_dists"].append(p["r_ft"])
+                    s["made_dists"].append(p["r_ft"])
             else: 
                 s["missed"] += 1
                 if "r_ft" in p: 
                     s["miss_dists"].append(p["r_ft"])
         
         player_name = None
+        team_key_sel = None
+
         if hasattr(self.controller, "get_selected_player"):
             player_name = self.controller.get_selected_player()
+
+        if hasattr(self.controller, "selected_team_key"):
+            try:
+                team_key_sel = self.controller.selected_team_key.get()
+            except Exception:
+                team_key_sel = None
 
         def fmt_avg(lst):
             if lst: 
@@ -668,19 +709,20 @@ class DataBar(ttk.Frame):
             pv["shots"].set(0); pv["made"].set(0); pv["missed"].set(0)
             pv["accuracy_fg"].set("-"); pv["avg_made_ft"].set("-"); pv["avg_missed_ft"].set("-")
         else: 
-            pshots = []
-            for p in (points or []):
-                if p.get("player") == player_name:
-                    pshots.append(p)
-            shots = len(pshots)
-            made = sum(1 for p in pshots if p.get("made"))
-            missed = shots - made 
-            made_d = [p.get("r_ft") for p in pshots if p.get("made") and isinstance(p.get("f_ft"), (int, float))]
-            missed_d = [p.get("r_ft") for p in pshots if not p.get("made") and isinstance(p.get("f_ft"), (int, float))]
+            pshots = [p for p in (points or [])
+                  if p.get("player") == player_name and p.get("team") == team_key_sel]
+
+            shots  = len(pshots)
+            made   = sum(1 for p in pshots if p.get("made"))
+            missed = shots - made
+            made_d   = [p.get("r_ft") for p in pshots if p.get("made") and isinstance(p.get("r_ft"), (int, float))]
+            missed_d = [p.get("r_ft") for p in pshots if not p.get("made") and isinstance(p.get("r_ft"), (int, float))]
             fg = f"{(made / shots * 100):.1f}%" if shots else "-"
 
+            team_label = self.controller.team_names.get(team_key_sel, tk.StringVar(value=team_key_sel.title())).get()
+
             pv = self._player_vars
-            pv["heading"].set(f"Selected Player: {player_name}")
+            pv["heading"].set(f"Selected Player: {player_name} ({team_label})")
             pv["shots"].set(shots)
             pv["made"].set(made)
             pv["missed"].set(missed)
