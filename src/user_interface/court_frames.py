@@ -79,9 +79,14 @@ class CourtFrame(ttk.Frame):
 
         self.center_canvas=ScreenImage(self)
         self.center_canvas.grid(row=1, column=1, sticky="nsew")
+
         c = self.center_canvas.canvas
-        c.bind("<Button-1>", self._on_canvas_click)
-        self._shot_markers = []
+        self._shot_markers: list[dict] = []
+        
+        c.bind("<Button-1>", self._on_canvas_click, add="+")
+        def _reposition_after_render(_evt=None):
+            self.after_idle(self._reposition_markers)
+        c.bind("<Configure>", lambda e: self.after_idle(self._reposition_markers), add="+")
 
         from src.application_logic.zoning_configuration import MASK
         print("COURT_ART source size:", self.center_canvas.images["court_dark"].size)
@@ -96,6 +101,22 @@ class CourtFrame(ttk.Frame):
         self.after_idle(self.update_mode)
         self.refresh_stats()   
 
+    def _reposition_markers(self):
+        if getattr(self.center_canvas, "_draw_info", None) is None: 
+            self.after_idle(self._reposition_markers)
+            return
+        
+        c = self.center_canvas.canvas
+        r = 4
+        for m in self._shot_markers:
+            pos = self.center_canvas.image_to_canvas(m["ix"], m["iy"])
+            if not pos: 
+                continue 
+            cx, cy = pos 
+            c.coords(m["id"], cx - r, cy - r, cx + r, cy + r)
+
+        c.tag_raise("shot_marker")
+
     def toggle_mode(self):
         self.mode="dark" if self.mode == "light" else "light"
         self.update_mode()
@@ -104,6 +125,7 @@ class CourtFrame(ttk.Frame):
     def update_mode(self):
         cfg = MODE[self.mode]
         self.center_canvas.show(cfg["image"])
+        self.after_idle(self._reposition_markers)
 
         style = ttk.Style(self)
         style.configure("TopBar.TFrame", background = cfg["bg"])
@@ -160,6 +182,13 @@ class CourtFrame(ttk.Frame):
         self.center_canvas.show(MODE[self.mode]["image"])
         self.refresh_stats()
         self.set_status("Reset.")
+
+        for m in getattr(self, "_shot_markers", []):
+            try: 
+                self.center_canvas.canvas.delete(m["id"])
+            except Exception:
+                pass
+        self._shot_markers.clear()
                    
     def end_game(self):
         self.set_status("End game (stub).") #Build confirmation dialog
@@ -315,13 +344,17 @@ class CourtFrame(ttk.Frame):
         pos = self.center_canvas.image_to_canvas(ix, iy)
         if not pos: 
             return 
+       
         cx, cy = pos 
         r = 4
         fill = "#2ecc71" if made else "#e74c3c"
-        marker = self.center_canvas.canvas.create_oval(
-            cx - r, cy - r, cx + r, cy + r, outline="", fill = fill 
-        )
-        self._shot_markers.append(marker)
+        
+        cid = self.center_canvas.canvas.create_oval(
+            cx - r, cy - r, cx + r, cy + r, 
+            outline="", fill=fill, tags=("shot_marker",)
+       )
+        self.center_canvas.canvas.tag_raise(cid)
+        self._shot_markers.append({"id": cid, "ix": ix, "iy": iy, "made": made})
 
 
     def get_selected_player(self) -> str | None: 
@@ -471,7 +504,7 @@ class SideBar(ttk.Frame):
             self.controller.selected_team_key.set(key)
             self.refresh_player_list()
             if hasattr(self.controller, "refresh_stats"):
-                self.controller.refresh_stats
+                self.controller.refresh_stats()
 
     def refresh_player_list(self):
         for w in self.player_list_frame.winfo_children():
