@@ -347,7 +347,7 @@ class CourtFrame(ttk.Frame):
        
         cx, cy = pos 
         r = 4
-        fill = "#2ecc71" if made else "#e74c3c"
+        fill = "#3F704D" if made else "#960018"
         
         cid = self.center_canvas.canvas.create_oval(
             cx - r, cy - r, cx + r, cy + r, 
