@@ -741,7 +741,7 @@ class DataBar(ttk.Frame):
     
         if not player_name: 
             pv = self._player_vars
-            pv["heading"].set("Selected Player: -")
+            pv["heading"].set("Selected Player:")
             pv["shots"].set(0); pv["made"].set(0); pv["missed"].set(0)
             pv["accuracy_fg"].set("-"); pv["avg_made_ft"].set("-"); pv["avg_missed_ft"].set("-")
         else: 
@@ -758,7 +758,7 @@ class DataBar(ttk.Frame):
             team_label = self.controller.team_names.get(team_key_sel, tk.StringVar(value=team_key_sel.title())).get()
 
             pv = self._player_vars
-            pv["heading"].set(f"Selected Player: {player_name} ({team_label})")
+            pv["heading"].set(f"{player_name} ({team_label})")
             pv["shots"].set(shots)
             pv["made"].set(made)
             pv["missed"].set(missed)
