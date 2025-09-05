@@ -323,13 +323,13 @@ class CourtFrame(ttk.Frame):
         if res is None: 
             return
         made = bool(res)
-        
-        self._draw_marker(ix, iy, made=made)
 
-        team_key = self.selected_team_key.get()
+        team_key = self.selected_team_key.get()        # <— define first
+        self._draw_marker(ix, iy, made=made, team=team_key)  # <— one call only
+
         team_name = self.team_names[team_key].get()
         status_text = f"{team_name}: {player_name} - {label} - {r_ft:.1f} ft (Q{self.quarter.get()[-1]})"
-        
+               
         meta = {"player": player_name, "zone": label,
                 "r_ft": r_ft, "dx_ft": dx_ft, "dy_ft": dy_ft}
 
@@ -340,7 +340,7 @@ class CourtFrame(ttk.Frame):
             meta=meta, status_text=status_text)
 
              
-    def _draw_marker(self, ix: int, iy: int, *, made:bool):
+    def _draw_marker(self, ix: int, iy: int, *, made:bool, team: str):
         pos = self.center_canvas.image_to_canvas(ix, iy)
         if not pos: 
             return 
@@ -348,13 +348,24 @@ class CourtFrame(ttk.Frame):
         cx, cy = pos 
         r = 4
         fill = "#3F704D" if made else "#960018"
-        
-        cid = self.center_canvas.canvas.create_oval(
+
+        if team == "home": 
+            cid = self.center_canvas.canvas.create_oval(
+                cx - r, cy - r, cx + r, cy + r, 
+                outline="", fill=fill, 
+                tags=("shot_marker", "home_marker"),    
+            )
+            shape = "oval"
+        else:       
+            cid = self.center_canvas.canvas.create_rectangle(
             cx - r, cy - r, cx + r, cy + r, 
-            outline="", fill=fill, tags=("shot_marker",)
+            outline="", fill=fill, 
+            tags=("shot_marker", "away_marker")
        )
+            shape = "rectangle"
+
         self.center_canvas.canvas.tag_raise(cid)
-        self._shot_markers.append({"id": cid, "ix": ix, "iy": iy, "made": made})
+        self._shot_markers.append({"id": cid, "ix": ix, "iy": iy, "made": made, "team": team, "shape": shape})
 
 
     def get_selected_player(self) -> str | None: 
