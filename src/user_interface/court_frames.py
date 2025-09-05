@@ -14,7 +14,7 @@ from src.application_logic.zoning_configuration import shot_distance_from_hoop
 from src import config
 
 BAR_HEIGHT = 60
-SIDE_WIDTH = 260
+SIDE_WIDTH = 300
 
 MODE = {
     "light": {
@@ -689,7 +689,9 @@ class DataBar(ttk.Frame):
             "accuracy_fg": tk.StringVar(value="-"),
             "avg_made_ft": tk.StringVar(value="-"),
             "avg_missed_ft": tk.StringVar(value="-"),
-            "heading": tk.StringVar(value="-"),   
+            "heading": tk.StringVar(value="-"),
+            "dom_zone": tk.StringVar(value="-"),
+            "weak_zone": tk.StringVar(value="-"),   
         }
 
         box.configure(labelwidget=ttk.Label(box, textvariable=vars["heading"]))
@@ -701,6 +703,9 @@ class DataBar(ttk.Frame):
         ttk.Label(box, text="Accuracy:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["accuracy_fg"]).grid(row=r, column=1, sticky="e"); r+=1
         ttk.Label(box, text="Average Made Distance:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["avg_made_ft"]).grid(row=r, column=1, sticky="e"); r+=1
         ttk.Label(box, text="Average Missed Distance:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["avg_missed_ft"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Dominant Zone").grid(row=r, column=0, sticky="w");ttk.Label(box, textvariable=vars["dom_zone"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Weak Zone:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["weak_zone"]).grid(row=r, column=1, sticky="e"); r += 1 
+
 
         if not hasattr(self, "_team_vars"):
             self._team_vars = {}
@@ -755,6 +760,7 @@ class DataBar(ttk.Frame):
             pv["heading"].set("Selected Player:")
             pv["shots"].set(0); pv["made"].set(0); pv["missed"].set(0)
             pv["accuracy_fg"].set("-"); pv["avg_made_ft"].set("-"); pv["avg_missed_ft"].set("-")
+            pv["dom_zone"].set("-"); pv["weak_zone"].set("-")
         else: 
             pshots = [p for p in (points or [])
                   if p.get("player") == player_name and p.get("team") == team_key_sel]
@@ -767,6 +773,7 @@ class DataBar(ttk.Frame):
             fg = f"{(made / shots * 100):.1f}%" if shots else "-"
 
             team_label = self.controller.team_names.get(team_key_sel, tk.StringVar(value=team_key_sel.title())).get()
+            dom, weak = self._zone_strength(pshots)
 
             pv = self._player_vars
             pv["heading"].set(f"{player_name} ({team_label})")
@@ -776,6 +783,7 @@ class DataBar(ttk.Frame):
             pv["accuracy_fg"].set(fg)
             pv["avg_made_ft"].set(fmt_avg(made_d))
             pv["avg_missed_ft"].set(fmt_avg(missed_d))
+            pv["dom_zone"].set(dom); pv["weak_zone"].set(weak)
 
         for team_key in ("home", "away"): 
             s = stats[team_key]
@@ -784,6 +792,9 @@ class DataBar(ttk.Frame):
             missed = s["missed"]
             pct = f"{(made / shots * 100):.1f}%" if shots else "-"
                 
+            team_shots = [p for p in (points or []) if p.get("team") == team_key]
+            dom, weak = self._zone_strength(team_shots)
+
             vars = self._team_vars[team_key]
             vars["shots"].set(shots)
             vars["made"].set(made)
@@ -791,7 +802,8 @@ class DataBar(ttk.Frame):
             vars["accuracy_fg"].set(pct)
             vars["avg_made_ft"].set(fmt_avg(s["made_dists"]))
             vars["avg_missed_ft"].set(fmt_avg(s["miss_dists"]))
-
+            vars["dom_zone"].set(dom)
+            vars["weak_zone"].set(weak)
 
     def _make_player_section(self, parent, row: int):
         box = ttk.LabelFrame(parent, text="", padding=8)
@@ -806,6 +818,8 @@ class DataBar(ttk.Frame):
             "accuracy_fg": tk.StringVar(value="-"),
             "avg_made_ft": tk.StringVar(value="-"),
             "avg_missed_ft": tk.StringVar(value="-"),
+            "dom_zone": tk.StringVar(value="-"),
+            "weak_zone": tk.StringVar(value="-")
         }
         box.configure(labelwidget=ttk.Label(box, textvariable=vars["heading"]))
 
@@ -816,7 +830,29 @@ class DataBar(ttk.Frame):
         ttk.Label(box, text="Accuracy:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["accuracy_fg"]).grid(row=r, column=1, sticky="e"); r+=1
         ttk.Label(box, text="Average Made Distance:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["avg_made_ft"]).grid(row=r, column=1, sticky="e"); r+=1
         ttk.Label(box, text="Average Missed Distance:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["avg_missed_ft"]).grid(row=r, column=1, sticky="e"); r+=1
-
+        ttk.Label(box, text="Dominant Zone:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["dom_zone"]).grid(row=r, column=1, sticky="e"); r += 1
+        ttk.Label(box, text="Weak Zone:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["weak_zone"]).grid(row=r, column=1, sticky="e"); r += 1
+        
         self._player_vars = vars 
         return box 
     
+    def _zone_strength(self, shots: list[dict]) -> tuple[str, str]:
+        per = {}
+        for p in shots: 
+            z = p.get("zone")
+            if not z: 
+                continue
+            d = per.setdefault(z, {"made": 0, "att": 0})
+            d["att"] += 1
+            if p.get("made"):
+                d["made"] += 1
+        if not per: 
+            return "-", "-"
+    
+        items = [(z, v["made"], v["att"]) for z, v in per.items() if v["att"] > 0]
+        if not items:
+            return "-", "-"
+
+        dom = max(items, key=lambda t: (t[1] / t[2], t[2], t[0]))[0]
+        weak = min(items, key=lambda t: (t[1] / t[2], -t[2], t[0]))[0]
+        return dom, weak
