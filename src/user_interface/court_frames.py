@@ -396,7 +396,11 @@ class SideBar(ttk.Frame):
         self.configure(width = SIDE_WIDTH, padding=0)
 
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+
+        ttk.Label(self, text="Select Team", anchor="center").grid(
+            row=0, column=0, sticky="ew", padx=8, pady=(10,6)
+        )
 
         self.card = tk.Frame(
             self, 
@@ -404,7 +408,7 @@ class SideBar(ttk.Frame):
             highlightthickness=1,
             highlightbackground= "#A8B3C5",
         )
-        self.card.grid(row=0, column=0, sticky="nsew", padx=8, pady=10)
+        self.card.grid(row=1, column=0, sticky="nsew", padx=8, pady=10)
         self.inner = ttk.Frame(self.card, padding=8, style="CardInner.TFrame")
         self.inner.pack(fill="both", expand=True)
 
@@ -413,7 +417,6 @@ class SideBar(ttk.Frame):
         style.configure("PlayerSelected.TButton", padding=4, relief="sunken")
 
         #Team Selector
-        ttk.Label(self.inner, text="Select Team").grid(row=0, column=0, sticky="w", padx=8, pady=(2,2))
         self.team_dropdown_var = tk.StringVar()
         self.team_dropdown = ttk.OptionMenu(self.inner, self.team_dropdown_var, "")
         self.team_dropdown.grid(row=1, column=0, sticky="ew", padx=8)
