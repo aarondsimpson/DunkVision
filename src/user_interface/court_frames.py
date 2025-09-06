@@ -918,24 +918,26 @@ class DataBar(ttk.Frame):
         
         self._player_vars = vars 
         return box 
-    
+        
     def _zone_strength(self, shots: list[dict]) -> tuple[str, str]:
         per = {}
-        for p in shots: 
+        for p in shots:
             z = p.get("zone")
-            if not z: 
+            if not z:
                 continue
             d = per.setdefault(z, {"made": 0, "att": 0})
             d["att"] += 1
             if p.get("made"):
                 d["made"] += 1
-        if not per: 
+        if not per:
             return "-", "-"
-    
+
         items = [(z, v["made"], v["att"]) for z, v in per.items() if v["att"] > 0]
         if not items:
             return "-", "-"
 
-        dom = max(items, key=lambda t: (t[1] / t[2], t[2], t[0]))[0]
-        weak = min(items, key=lambda t: (t[1] / t[2], -t[2], t[0]))[0]
+        dom = max(items, key=lambda t: (t[1], t[1] / t[2], t[2], t[0]))[0]   
+        weak = min(items, key=lambda t: (t[1], t[1] / t[2], -t[2], t[0]))[0]
+
         return dom, weak
+
