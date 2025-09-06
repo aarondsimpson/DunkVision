@@ -337,3 +337,43 @@ def game_metadata_dialog(parent) -> dict | None:
     win.deiconify()
     parent.wait_window(win)
     return result[0]
+
+def dunk_or_layup_dialog(parent) -> str | None:  
+    win = tk.Toplevel(parent)                    
+    win.title("Shot Type")                       
+    win.transient(parent)                        
+    win.resizable(False, False)                  
+    win.grab_set()                               
+
+    frm = ttk.Frame(win, padding=12)             
+    frm.grid(sticky="nsew")                      
+    ttk.Label(frm, text="Dunk or Layup?").grid(  
+        row=0, column=0, columnspan=2, pady=(0, 10)  
+    )                                            
+
+    result = {"val": None}                       
+
+    def _set(v: str):                            
+        result["val"] = v                        
+        win.destroy()                            
+
+    ttk.Button(frm, text="Dunk",                
+               command=lambda: _set("Dunk")     
+               ).grid(row=1, column=0, padx=(0, 6))  
+    ttk.Button(frm, text="Layup",               
+               command=lambda: _set("Layup")    
+               ).grid(row=1, column=1, padx=(6, 0))  
+
+    win.bind("<Escape>", lambda _e: _set(None))  
+    win.update_idletasks()                       
+
+    try:                                         
+        px, py = parent.winfo_rootx(), parent.winfo_rooty()
+        pw, ph = parent.winfo_width(), parent.winfo_height()
+        ww, wh = win.winfo_width(), win.winfo_height()
+        win.geometry(f"+{px + (pw-ww)//2}+{py + (ph-wh)//2}")
+    except Exception:
+        pass
+
+    parent.wait_window(win)                      
+    return result["val"]                         

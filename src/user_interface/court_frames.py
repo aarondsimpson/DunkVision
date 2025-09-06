@@ -8,7 +8,7 @@ from pathlib import Path
 
 from src.user_interface.court_canvas import ScreenImage
 from src.user_interface.player_dialogs import confirm, info, error, resolve
-from src.user_interface.modals import add_player_dialog as add_player_modal, rename_team_dialog, shot_result_dialog
+from src.user_interface.modals import add_player_dialog as add_player_modal, rename_team_dialog, shot_result_dialog, dunk_or_layup_dialog
 from src.application_logic.zoning import resolve_zone
 from src.application_logic.zoning_configuration import shot_distance_from_hoop 
 from src import config
@@ -358,6 +358,7 @@ class CourtFrame(ttk.Frame):
             self.set_status(label)
             return 
         
+       
         player_name = self.sidebar.get_selected_player_name()
         if not player_name:
             self.set_status("Select a player first.")
@@ -370,14 +371,30 @@ class CourtFrame(ttk.Frame):
             return
         made = bool(res)
 
+        is_dunk_zone = (
+            kind_norm == "dunk_zone" or
+            "dunk" in (label or "").lower()
+        )
+        shot_kind = None
+        if is_dunk_zone:
+            shot_kind = dunk_or_layup_dialog(self)
+            if shot_kind is None: 
+                return
+
         team_key = self.selected_team_key.get()        
         marker = self._draw_marker(ix, iy, made=made, team=team_key)
 
         team_name = self.team_names[team_key].get()
-        status_text = f"{team_name}: {player_name} - {label} - {r_ft:.1f} ft (Q{self.quarter.get()[-1]})"
-               
+        kind_suffix = f" - {shot_kind}" if shot_kind else ""
+        status_text = (
+            f"{team_name}: {player_name} - {label}{kind_suffix} - "
+            f"{r_ft:.1f} ft (Q{self.quarter.get()[-1]})"
+        )
+
         meta = {"player": player_name, "zone": label,
                 "r_ft": r_ft, "dx_ft": dx_ft, "dy_ft": dy_ft}
+        if shot_kind: 
+            meta["shot_type"] = shot_kind
 
         self.record_shot(
             team=team_key, 
