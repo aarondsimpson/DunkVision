@@ -18,6 +18,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "title": "End Game?",
         "message": "End the Game?"
     },
+    "confirm_action": {
+        "title": "Confirm Action",
+        "message": "{action}?",
+    },
     "confirm_remove_player": {
         "title": "Remove Player?",
         "message": "Remove {name} from {team}?"
@@ -32,9 +36,6 @@ MESSAGES: dict[str, dict[str, str]] = {
             "Sorry, I couldn't save the image to {path}"
         }
     }
-#Will add more as they appear
-#Will add "load" section for load-related messages
-#Will add "save" section for save-related messages 
 
 def resolve(key_or_title: str, message: str | None = None, **fmt) -> tuple[str, str]:
     key = str(key_or_title).strip().lower()
@@ -67,6 +68,11 @@ def confirm(key_or_title: str, parent: Misc | None=None, message: str | None=Non
     title, text = resolve(key_or_title, message, **fmt)
     master = None if parent is None else parent.winfo_toplevel()
     return messagebox.askyesno(title, text, parent=master)
+
+def confirm_action(key_or_title: str, parent: Misc | None = None, message: str | None = None, **fmt) -> bool:  
+    title, text = resolve(key_or_title, message, **fmt)                                           
+    master = None if parent is None else parent.winfo_toplevel()                                 
+    return messagebox.askyesno(title, text, parent=master)  
 
 def info(key_or_title: str, parent: Misc | None=None, message: str | None=None, **fmt) -> None: 
     title, text = resolve(key_or_title, message, **fmt)

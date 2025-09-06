@@ -7,7 +7,7 @@ from PIL import Image, ImageTk
 from pathlib import Path
 
 from src.user_interface.court_canvas import ScreenImage
-from src.user_interface.player_dialogs import confirm, info, error, resolve
+from src.user_interface.player_dialogs import confirm, info, error, resolve, confirm_action
 from src.user_interface.modals import (add_player_dialog as add_player_modal, rename_team_dialog, 
                                        shot_result_dialog, dunk_or_layup_dialog, choose_one_dialog, free_throw_reason_dialog)
 from src.application_logic.zoning import resolve_zone
@@ -153,14 +153,28 @@ class CourtFrame(ttk.Frame):
             else:
                 info("Not Wired", self, "Home navigation is not wired yet.")
         
+    def _action_label(self, kind: str, *, prefix: str) -> str:                           
+        mapping = {                                                                      
+            "shot": "Shot",                                                              
+            "add_player": "Add Player",                                                  
+            "remove_player": "Remove Player",                                            
+        }                                                                                
+        base = mapping.get(kind, kind.title())                                           
+        return f"{prefix} {base}"
+
     def undo_action(self):
         if not self.actions:
             self.set_status("Nothing to Undo.")
             return
-        
-        action=self.actions.pop()
+
+        last = self.actions[-1]
+        if not confirm_action("confirm_action", self,
+                            action=self._action_label(last.get("type","action"), prefix="Undo")):
+            return
+
+        action = self.actions.pop()
         self.redo_stack.append(action)
-        
+
         if action.get("type") == "shot":
             point = action.get("data")
             for i in range(len(self.data_points) - 1, -1, -1):
@@ -174,30 +188,60 @@ class CourtFrame(ttk.Frame):
                     self.center_canvas.canvas.delete(mid)
                 except Exception:
                     pass
-                # also drop from our marker registry
                 self._shot_markers = [m for m in self._shot_markers if m.get("id") != mid]
 
             self.refresh_stats()
             self.set_status("Undid: shot")
-            # make sure remaining dots stay on top
             self.center_canvas.canvas.tag_raise("shot_marker")
+
+        elif action.get("type") == "add_player":                                       
+            team = action["team"]; name = action["name"]; idx = action.get("index")    
+            roster = self.rosters.get(team, [])                                        
+            try:                                                                       
+                if idx is not None and 0 <= idx < len(roster) and roster[idx] == name:
+                    roster.pop(idx)                                                    
+                else:
+                    roster.remove(name)                                                
+            except ValueError:
+                pass
+            if self.selected_team_key.get() != team:                                   
+                self.selected_team_key.set(team)                                       
+                self.sidebar.refresh_team_dropdown()                                   
+            self.sidebar.refresh_player_list()                                         
+            self.set_status(f"Undid: Add Player ({name})")                             
+
+        elif action.get("type") == "remove_player":                                    
+            team = action["team"]; name = action["name"]; idx = action.get("index")    
+            roster = self.rosters.get(team, [])
+            ins = idx if isinstance(idx, int) and 0 <= idx <= len(roster) else len(roster)
+            roster.insert(ins, name)                                                   
+            if self.selected_team_key.get() != team:                                   
+                self.selected_team_key.set(team)                                       
+                self.sidebar.refresh_team_dropdown()                                   
+            self.sidebar.refresh_player_list()                                         
+            self.set_status(f"Undid: Remove Player ({name})")                          
+
         else:
             self.set_status(f"Undid: {action.get('type','action')}")
+
         
     def redo_action(self):
         if not self.redo_stack:
             self.set_status("Nothing to Redo.")
             return
 
+        nxt = self.redo_stack[-1]
+        if not confirm_action("confirm_action", self,
+                            action=self._action_label(nxt.get("type","action"), prefix="Redo")):
+            return
+
         action = self.redo_stack.pop()
         self.actions.append(action)
 
         if action.get("type") == "shot":
-            # 1) re-add datapoint without creating a new 'action'
             point = action.get("data")
             self.data_points.append(point)
 
-            # 2) recreate the canvas marker from saved meta
             mm = action.get("marker_meta") or {}
             ix, iy = mm.get("ix"), mm.get("iy")
             made = mm.get("made")
@@ -210,8 +254,38 @@ class CourtFrame(ttk.Frame):
             self.refresh_stats()
             self.set_status("Redid: shot")
             self.center_canvas.canvas.tag_raise("shot_marker")
+
+        elif action.get("type") == "add_player":                                       
+            team = action["team"]; name = action["name"]; idx = action.get("index")    
+            roster = self.rosters.get(team, [])
+            ins = idx if isinstance(idx, int) and 0 <= idx <= len(roster) else len(roster)
+            if name not in roster:
+                roster.insert(ins, name)                                               
+            if self.selected_team_key.get() != team:                                   
+                self.selected_team_key.set(team)                                       
+                self.sidebar.refresh_team_dropdown()                                   
+            self.sidebar.refresh_player_list()                                         
+            self.set_status(f"Redid: Add Player ({name})")                             
+
+        elif action.get("type") == "remove_player":                                    
+            team = action["team"]; name = action["name"]; idx = action.get("index")    
+            roster = self.rosters.get(team, [])
+            try:
+                if idx is not None and 0 <= idx < len(roster) and roster[idx] == name:
+                    roster.pop(idx)                                                    
+                else:
+                    roster.remove(name)                                                
+            except ValueError:
+                pass
+            if self.selected_team_key.get() != team:                                   
+                self.selected_team_key.set(team)                                       
+                self.sidebar.refresh_team_dropdown()                                   
+            self.sidebar.refresh_player_list()                                         
+            self.set_status(f"Redid: Remove Player ({name})")                          
+
         else:
             self.set_status(f"Redid: {action.get('type','action')}")
+
 
     def select_quarter(self, q:str):
         self.quarter.set(q)
@@ -432,7 +506,6 @@ class CourtFrame(ttk.Frame):
         meta = {
             "player": player_name, "zone": label,
             "r_ft": r_ft, "dx_ft": dx_ft, "dy_ft": dy_ft,
-            "and1": and1,
         }
         if not is_free_throw and and1:
             meta["and1"] = True
@@ -619,9 +692,7 @@ class SideBar(ttk.Frame):
 
         self.refresh_team_dropdown()
         self.team_dropdown_var.trace_add("write", lambda *_: self.on_team_change())
-        self.refresh_player_list()
-        
-    #Helper Functions 
+        self.refresh_player_list() 
 
     def labels(self):
         tn = self.controller.team_names
@@ -718,6 +789,16 @@ class SideBar(ttk.Frame):
         position = res["position"]
 
         self.controller.rosters[team_key].append(player_name)
+        index_added = self.controller.rosters[team_key].index(player_name)
+
+        self.controller.actions.append({                                           
+            "type": "add_player",                                                  
+            "team": team_key,                                                      
+            "name": player_name,                                                   
+            "position": position,                                                  
+            "index": index_added,                                                  
+        })            
+        self.controller.redo_stack.clear()       
 
         if team_key != current_key:
             self.controller.selected_team_key.set(team_key)
@@ -725,6 +806,9 @@ class SideBar(ttk.Frame):
         
         self.refresh_player_list()
         self._select_button_by_text(player_name)
+
+        if hasattr(self, "selected_player_var"):                                           
+            self.selected_player_var.set(player_name)
 
         if hasattr(self.controller, "set_status"):
             team_label = self.controller.team_names[team_key].get()
@@ -744,15 +828,33 @@ class SideBar(ttk.Frame):
         team_label = self.controller.team_names[key].get()
         if not confirm("confirm_remove_player", self, name=name, team=team_label):
             return
+       
+        try:                                                                               
+            idx = self.controller.rosters[key].index(name)                                 
+        except ValueError:                                                                 
+            idx = None                                                                     
+
         try:
             self.controller.rosters[key].remove(name)
         except ValueError:
             pass
-        self.selected_player_button=None
+        
+        self.controller.actions.append({                                           
+            "type": "remove_player",                                               
+            "team": key,                                                           
+            "name": name,                                                          
+            "index": idx,                                                          
+        })                                                        
+        self.controller.redo_stack.clear()                                      
+
+        self.selected_player_button = None
         if hasattr(self, "remove_btn"):
             self.remove_btn.configure(state="disabled")
         self.refresh_player_list()
-  
+
+        if hasattr(self, "selected_player_var"):                                          
+            self.selected_player_var.set("")
+                                         
     def rename_team(self):
         labels=self.labels()
         current_label=self.team_dropdown_var.get()
