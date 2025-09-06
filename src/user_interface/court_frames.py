@@ -511,7 +511,7 @@ class SideBar(ttk.Frame):
             highlightthickness=1,
             highlightbackground= "#A8B3C5",
         )
-        self.card.grid(row=1, column=0, sticky="nsew", padx=8, pady=10)
+        self.card.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0,8))
         self.inner = ttk.Frame(self.card, padding=8, style="CardInner.TFrame")
         self.inner.pack(fill="both", expand=True)
 
