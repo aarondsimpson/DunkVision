@@ -111,7 +111,7 @@ class DunkVisionApp(tk.Tk):
             meta = game_metadata_dialog(self.center)
             if meta: 
                 setattr(self.center, "game_date", meta["date"])
-                setattr("game_location", meta["location"])
+                setattr(self.center, "game_location", meta["location"])
                 if hasattr(self.center, "set_status"):
                     self.center.set_status(f"Game: {meta['date']} • {meta['location']}")
         self.after_idle(_ask_details)    

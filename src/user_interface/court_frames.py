@@ -156,17 +156,61 @@ class CourtFrame(ttk.Frame):
         if not self.actions:
             self.set_status("Nothing to Undo.")
             return
+        
         action=self.actions.pop()
         self.redo_stack.append(action)
-        self.set_status(f"Undid: {action.get('type', 'action')}") #Requires build out when canvas drawing is coded
+        
+        if action.get("type") == "shot":
+            point = action.get("data")
+            for i in range(len(self.data_points) - 1, -1, -1):
+                if self.data_points[i] is point or self.data_points[i] == point:
+                    self.data_points.pop(i)
+                    break
 
+            mid = action.get("marker_id")
+            if mid:
+                try:
+                    self.center_canvas.canvas.delete(mid)
+                except Exception:
+                    pass
+                # also drop from our marker registry
+                self._shot_markers = [m for m in self._shot_markers if m.get("id") != mid]
+
+            self.refresh_stats()
+            self.set_status("Undid: shot")
+            # make sure remaining dots stay on top
+            self.center_canvas.canvas.tag_raise("shot_marker")
+        else:
+            self.set_status(f"Undid: {action.get('type','action')}")
+        
     def redo_action(self):
         if not self.redo_stack:
             self.set_status("Nothing to Redo.")
-            return 
-        action=self.redo_stack.pop()
+            return
+
+        action = self.redo_stack.pop()
         self.actions.append(action)
-        self.set_status(f"Redid: {action.get('type', 'action')}") #Requires build out when canvas drawing is coded 
+
+        if action.get("type") == "shot":
+            # 1) re-add datapoint without creating a new 'action'
+            point = action.get("data")
+            self.data_points.append(point)
+
+            # 2) recreate the canvas marker from saved meta
+            mm = action.get("marker_meta") or {}
+            ix, iy = mm.get("ix"), mm.get("iy")
+            made = mm.get("made")
+            team = mm.get("team")
+            if None not in (ix, iy) and team is not None and made is not None:
+                marker = self._draw_marker(ix, iy, made=made, team=team)
+                if marker:
+                    action["marker_id"] = marker["id"]
+
+            self.refresh_stats()
+            self.set_status("Redid: shot")
+            self.center_canvas.canvas.tag_raise("shot_marker")
+        else:
+            self.set_status(f"Redid: {action.get('type','action')}")
 
     def select_quarter(self, q:str):
         self.quarter.set(q)
@@ -326,8 +370,8 @@ class CourtFrame(ttk.Frame):
             return
         made = bool(res)
 
-        team_key = self.selected_team_key.get()        # <— define first
-        self._draw_marker(ix, iy, made=made, team=team_key)  # <— one call only
+        team_key = self.selected_team_key.get()        
+        marker = self._draw_marker(ix, iy, made=made, team=team_key)
 
         team_name = self.team_names[team_key].get()
         status_text = f"{team_name}: {player_name} - {label} - {r_ft:.1f} ft (Q{self.quarter.get()[-1]})"
@@ -340,7 +384,15 @@ class CourtFrame(ttk.Frame):
             x=ix, y=iy, 
             made=made, airball=False,
             meta=meta, status_text=status_text)
-
+        
+        try:
+            if marker and self.actions and self.actions[-1].get("type") == "shot":
+                self.actions[-1]["marker_id"] = marker["id"]
+                self.actions[-1]["marker_meta"] = {
+                    "ix": ix, "iy": iy, "made": made, "team": team_key
+            }
+        except Exception:
+            pass
              
     def _draw_marker(self, ix: int, iy: int, *, made:bool, team: str):
         pos = self.center_canvas.image_to_canvas(ix, iy)
@@ -367,11 +419,16 @@ class CourtFrame(ttk.Frame):
             shape = "rectangle"
 
         self.center_canvas.canvas.tag_raise(cid)
-        self._shot_markers.append({"id": cid, "ix": ix, "iy": iy, "made": made, "team": team, "shape": shape})
+        m = {"id": cid, "ix": ix, "iy": iy, "made": made, "team": team, "shape": shape}
+        self._shot_markers.append(m)
+        return m 
+        
 
-
-    def get_selected_player(self) -> str | None: 
-        return getattr (self.sidebar, "selected_player_name", None)
+    def get_selected_player(self) -> str | None:
+        try:
+            return self.sidebar.get_selected_player_name()
+        except Exception:
+            return None
 
 
 class TopBar(ttk.Frame):
@@ -488,6 +545,10 @@ class SideBar(ttk.Frame):
         self.player_buttons = []
         self.selected_player_button = None #track selection
         self.selected_player_name = None
+        self.selected_player_var = tk.StringVar(value="")
+        self.selected_player_var.trace_add("write", lambda *_: (
+            hasattr(self.controller, "refresh_stats") and self.controller.refresh_stats()
+        ))
 
         self.refresh_team_dropdown()
         self.team_dropdown_var.trace_add("write", lambda *_: self.on_team_change())
@@ -523,7 +584,9 @@ class SideBar(ttk.Frame):
         for w in self.player_list_frame.winfo_children():
             w.destroy()
         self.player_buttons.clear()
-        self.selected_player_button=None
+        self.selected_player_button = None
+        self.selected_player_name = None
+        self.selected_player_var.set("")      
         self.remove_btn.configure(state="disabled")
 
         key = self.controller.selected_team_key.get()
@@ -549,6 +612,7 @@ class SideBar(ttk.Frame):
                 pass
             self.selected_player_button=None
             self.selected_player_name=None
+            self.selected_player_var.set("")
             self.remove_btn.configure(state="disabled")
             if hasattr(self.controller, "refresh_stats"):
                 self.controller.refresh_stats()
@@ -563,6 +627,7 @@ class SideBar(ttk.Frame):
         btn.configure(style="PlayerSelected.TButton")
         self.selected_player_button = btn 
         self.selected_player_name = btn.cget("text")
+        self.selected_player_var.set(self.selected_player_name)
         self.remove_btn.configure(state="normal")
 
         if hasattr(self.controller, "refresh_stats"):
@@ -630,13 +695,12 @@ class SideBar(ttk.Frame):
         self.refresh_team_dropdown()
                 
     def get_selected_player_name(self) -> str | None: 
-        if self.selected_player_button: 
-            try: 
-                return self.selected_player_button.cget("text")
-            except Exception: 
-                return None
-        return None 
-    
+        try: 
+            name = self.selected_player_var.get().strip()
+            return name or None 
+        except Exception: 
+            return None 
+
 
 class StatusBar(ttk.Frame): 
     def __init__(self, parent): 
