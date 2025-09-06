@@ -4,6 +4,8 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Optional, Dict
+from datetime import date
+import calendar as _calendar
 
 from src.config import ICON_ICO, ICON_PNG
 from src.user_interface.player_dialogs import resolve, confirm, info, error
@@ -219,3 +221,119 @@ def shot_result_dialog(parent) -> bool | None:
 
     parent.wait_window(win)
     return result["val"]
+
+def game_metadata_dialog(parent) -> dict | None: 
+    try: 
+        from tkcalendar import DateEntry
+        _HAS_TKCALENDAR = True
+    except Exception: 
+        _HAS_TKCALENDAR = False 
+
+    win = tk.Toplevel(parent)
+    win.withdraw()
+    win.title("Game Details")
+    win.transient(parent)
+    win.resizable(False, False)
+    win.grab_set()
+
+    _apply_window_icons(win)
+
+    frm = ttk.Frame(win, padding=12)
+    frm.grid(sticky="nsew")
+    win.grid_columnconfigure(0, weight=1)
+
+    ttk.Label(frm, text="Date").grid(row=0, column=0, sticky="w")
+
+    if _HAS_TKCALENDAR:
+        date_var = tk.StringVar()
+        date_ctl = DateEntry(frm, textvariable=date_var, date_pattern="yyyy-mm-dd")
+        # initialize with today's date
+        date_ctl.set_date(date.today())
+        date_var.set(date.today().isoformat())
+        date_ctl.grid(row=1, column=0, sticky="ew", pady=(2, 10))
+    else:
+        # Fallback: 3 pickers (Month / Day / Year)
+        today = date.today()
+        y_var = tk.IntVar(value=today.year)
+        m_var = tk.IntVar(value=today.month)
+        d_var = tk.IntVar(value=today.day)
+
+        row = ttk.Frame(frm)
+        row.grid(row=1, column=0, sticky="ew", pady=(2, 10))
+        row.grid_columnconfigure(0, weight=1)
+        row.grid_columnconfigure(1, weight=1)
+        row.grid_columnconfigure(2, weight=1)
+
+        years = list(range(today.year - 5, today.year + 6))
+        months = list(range(1, 13))
+
+        y_cb = ttk.Combobox(row, values=years, state="readonly", textvariable=y_var, width=6)
+        m_cb = ttk.Combobox(row, values=months, state="readonly", textvariable=m_var, width=4)
+        d_cb = ttk.Combobox(row, state="readonly", width=4, values=[])
+
+        def _sync_days(*_):
+            y = y_var.get()
+            m = m_var.get()
+            nd = _calendar.monthrange(y, m)[1]
+            days = list(range(1, nd + 1))
+            cur = min(d_var.get(), nd)
+            d_cb.configure(values=days)
+            d_var.set(cur)
+
+        m_cb.bind("<<ComboboxSelected>>", _sync_days)
+        y_cb.bind("<<ComboboxSelected>>", _sync_days)
+
+        y_cb.grid(row=0, column=0, padx=(0, 6))
+        m_cb.grid(row=0, column=1, padx=(0, 6))
+        d_cb.grid(row=0, column=2, padx=(0, 0))
+
+        d_cb.configure(textvariable=d_var)
+        _sync_days()
+
+        def _get_iso():
+            return date(y_var.get(), m_var.get(), d_var.get()).isoformat()
+
+    ttk.Label(frm, text="Location").grid(row=2, column=0, sticky="w")
+    loc_var = tk.StringVar(value="")
+    loc_ent = ttk.Entry(frm, textvariable=loc_var, width=28)
+    loc_ent.grid(row=3, column=0, sticky="ew", pady=(2, 10))
+
+    btns = ttk.Frame(frm)
+    btns.grid(row=4, column=0, sticky="e")
+
+    result = [None]
+
+    def on_ok():
+        if _HAS_TKCALENDAR:
+            iso = date_ctl.get_date().isoformat()
+        else:
+            try:
+                iso = _get_iso()
+            except Exception:
+                messagebox.showwarning("Invalid Date", "Please select a valid date.", parent=win)
+                return
+
+        loc = loc_var.get().strip()
+        if not loc:
+            messagebox.showwarning("Missing Location", "Please enter a location.", parent=win)
+            loc_ent.focus_set()
+            return
+        result[0] = {"date": iso, "location": loc}
+        win.destroy()
+
+    def on_cancel():
+        result[0] = None
+        win.destroy()
+
+    ttk.Button(btns, text="Cancel", command=on_cancel).grid(row=0, column=0, padx=(0, 6))
+    ttk.Button(btns, text="OK", command=on_ok).grid(row=0, column=1)
+
+    win.bind("<Return>", lambda _: on_ok())
+    win.bind("<Escape>", lambda _: on_cancel())
+
+    # focus and center
+    loc_ent.focus_set()
+    _center_on_parent(win, parent)
+    win.deiconify()
+    parent.wait_window(win)
+    return result[0]

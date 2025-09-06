@@ -31,6 +31,8 @@ class CourtFrame(ttk.Frame):
     def __init__(self, parent, controller=None):
         super().__init__(parent)
         self.controller= controller or self
+        self.game_date = None
+        self.game_location = None
         
         #State Definition 
         self.mode="dark"

@@ -8,6 +8,7 @@ from src.config import ICON_PNG, ICON_ICO
 from src.user_interface.court_canvas import StartScreen, CourtScreen
 from src.user_interface.court_frames import TopBar, SideBar, StatusBar, CourtFrame
 from src.user_interface.player_dialogs import confirm
+from src.user_interface.modals import game_metadata_dialog
 
 class DunkVisionApp(tk.Tk):
     def __init__(self):
@@ -105,6 +106,15 @@ class DunkVisionApp(tk.Tk):
         self.center.grid_forget()
         self.center=CourtFrame(self.root, controller=self)
         self.center.grid(row=1, column=1, sticky="nsew")
+
+        def _ask_details():
+            meta = game_metadata_dialog(self.center)
+            if meta: 
+                setattr(self.center, "game_date", meta["date"])
+                setattr("game_location", meta["location"])
+                if hasattr(self.center, "set_status"):
+                    self.center.set_status(f"Game: {meta['date']} • {meta['location']}")
+        self.after_idle(_ask_details)    
 
 
     def init_styles(self):
