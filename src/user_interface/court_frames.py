@@ -8,7 +8,8 @@ from pathlib import Path
 
 from src.user_interface.court_canvas import ScreenImage
 from src.user_interface.player_dialogs import confirm, info, error, resolve
-from src.user_interface.modals import add_player_dialog as add_player_modal, rename_team_dialog, shot_result_dialog, dunk_or_layup_dialog
+from src.user_interface.modals import (add_player_dialog as add_player_modal, rename_team_dialog, 
+                                       shot_result_dialog, dunk_or_layup_dialog, choose_one_dialog, free_throw_reason_dialog)
 from src.application_logic.zoning import resolve_zone
 from src.application_logic.zoning_configuration import shot_distance_from_hoop 
 from src import config
@@ -350,56 +351,105 @@ class CourtFrame(ttk.Frame):
         
         kind, label = resolve_zone(ix, iy)
         kind_norm = str(kind).lower().replace(" ", "_")
+        zone_lower = (label or "").strip().lower()
+      
+        is_dunk_zone = (kind_norm in {"dunk_zone", "dunk"} or "dunk" in zone_lower)  
+        is_free_throw = (kind_norm in {"free_throw", "free_throw_line"}            
+                         or "free throw" in zone_lower)                             
 
-        if kind_norm == "no_click": 
+        if kind_norm == "no_click" and not is_free_throw: 
             self.set_status(f"{label} - not a playable zone.")
             return 
         if kind_norm in ("out_of_bounds", "unknown"):
             self.set_status(label)
             return 
         
-       
         player_name = self.sidebar.get_selected_player_name()
         if not player_name:
             self.set_status("Select a player first.")
             return 
         
-        r_ft, dx_ft, dy_ft = shot_distance_from_hoop(ix, iy)
-
-        res = shot_result_dialog(self)
+        res = shot_result_dialog(self, show_and1=not is_free_throw)
         if res is None: 
             return
-        made = bool(res)
+      
+        made = bool(res["made"])
+        and1 = bool(res.get("and1", False))
 
-        is_dunk_zone = (
-            kind_norm == "dunk_zone" or
-            "dunk" in (label or "").lower()
-        )
         shot_kind = None
-        if is_dunk_zone:
-            shot_kind = dunk_or_layup_dialog(self)
-            if shot_kind is None: 
-                return
+        made_context = None
+        missed_context = None
+        ft_reason = None
 
+        if is_free_throw:
+            ft_reason = free_throw_reason_dialog(parent = self)
+            if ft_reason is None:
+                return
+        else: 
+            if is_dunk_zone: 
+                shot_kind = dunk_or_layup_dialog(parent = self)
+                if shot_kind is None:
+                    return
+
+            if made: 
+                made_context = choose_one_dialog(
+                    parent = self, 
+                    title="Made Shot Context",
+                    prompt="How was it made?",
+                    options=["Assisted", "Iso", "From Rebound"],
+                )
+                if made_context is None: 
+                    return
+            else:
+                missed_context = choose_one_dialog(
+                    parent = self,
+                    title="Missed Shot Context",
+                    prompt="Missed — choose one:",
+                    options=["Airball", "Rebounded"],
+            )
+                if missed_context is None:
+                    return 
+
+                
+        r_ft, dx_ft, dy_ft = shot_distance_from_hoop(ix, iy)
         team_key = self.selected_team_key.get()        
         marker = self._draw_marker(ix, iy, made=made, team=team_key)
 
         team_name = self.team_names[team_key].get()
-        kind_suffix = f" - {shot_kind}" if shot_kind else ""
+        tail_bits = []
+        if shot_kind: tail_bits.append(shot_kind)
+        if is_free_throw: tail_bits.append(f"Free Throw ({ft_reason})")
+        if and1 and not is_free_throw: tail_bits.append("And-1")
+        if made_context:     tail_bits.append(made_context)
+        if missed_context:   tail_bits.append(missed_context)
+        tail = f" [{', '.join(tail_bits)}]" if tail_bits else ""
+        
         status_text = (
-            f"{team_name}: {player_name} - {label}{kind_suffix} - "
-            f"{r_ft:.1f} ft (Q{self.quarter.get()[-1]})"
+        f"{team_name}: {player_name} - {label} - {r_ft:.1f} ft "
+        f"(Q{self.quarter.get()[-1]}){tail}"
         )
 
-        meta = {"player": player_name, "zone": label,
-                "r_ft": r_ft, "dx_ft": dx_ft, "dy_ft": dy_ft}
+        meta = {
+            "player": player_name, "zone": label,
+            "r_ft": r_ft, "dx_ft": dx_ft, "dy_ft": dy_ft,
+            "and1": and1,
+        }
+        if not is_free_throw and and1:
+            meta["and1"] = True
         if shot_kind: 
             meta["shot_type"] = shot_kind
+        if made_context:     
+            meta["made_context"] = made_context 
+        if missed_context:   
+            meta["miss_context"] = missed_context 
+        if is_free_throw:    
+            meta["shot_type"] = "Free Throw"
+            meta["ft_reason"] = ft_reason         
 
         self.record_shot(
             team=team_key, 
             x=ix, y=iy, 
-            made=made, airball=False,
+            made=made, airball=(missed_context == "Airball") if not is_free_throw else False,
             meta=meta, status_text=status_text)
         
         try:

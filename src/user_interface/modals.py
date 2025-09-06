@@ -188,39 +188,77 @@ def rename_team_dialog(parent: tk.Misc, current_name:str) -> Optional[str]:
     win.wait_window()
     return result[0]
 
-def shot_result_dialog(parent) -> bool | None:
+def shot_result_dialog(parent, *, show_and1: bool = True) -> dict | None:
     win = tk.Toplevel(parent)
     win.title("Shot Result")
     win.transient(parent)
     win.resizable(False, False)
     win.grab_set()
+    _apply_window_icons(win)
 
     frm = ttk.Frame(win, padding = 12)
     frm.grid(sticky = "nsew")
     ttk.Label(frm, text = "Shot Result?").grid(row = 0, column = 0, columnspan = 2, pady = (0,10))
 
-    result = {"val": None}
+    result = {"made": None, "and1": False}
 
-    def _set(v):
-        result["val"] = v
+    def _set(val: bool):
+        result["made"] = val
         win.destroy()
 
     ttk.Button(frm, text = "Made", command = lambda: _set(True)).grid(row = 1, column = 0, padx = (0,6))
     ttk.Button(frm, text = "Missed", command = lambda: _set(False)).grid(row = 1, column = 1, padx = (6,0))
 
+    if show_and1:
+        and1_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(frm, text="And-1", variable=and1_var).grid(
+            row=2, column=0, columnspan=2, pady=(10,0))
+        def _sync_and1(*_):
+            result["and1"] = bool(and1_var.get())
+        and1_var.trace_add("write", _sync_and1)
+        _sync_and1()
+
     win.bind("<Escape>", lambda _e: _set(None))
     win.update_idletasks()
-
-    try: 
-        px, py = parent.winfo_rootx(), parent.winfo_rooty()
-        pw, ph = parent.winfo_width(), parent.winfo_height()
-        ww, wh = win.winfo_width(), win.winfo_height()
-        win.geometry(f"+{px+(pw-ww)//2}+{py+(ph-wh)//2}")
-    except Exception:
-        pass
-
+    _center_on_parent(win, parent)
     parent.wait_window(win)
-    return result["val"]
+
+    if result["made"] is None:
+        return None
+    return result  
+
+def choose_one_dialog(parent, *, title: str, prompt: str, options: list[str]) -> str | None:  # <-- new
+    """Returns the chosen label or None."""
+    win = tk.Toplevel(parent)
+    win.title(title)
+    win.transient(parent)
+    win.resizable(False, False)
+    win.grab_set()
+    _apply_window_icons(win)
+
+    frm = ttk.Frame(win, padding=12)
+    frm.grid(sticky="nsew")
+
+    ttk.Label(frm, text=prompt).grid(row=0, column=0, columnspan=len(options), pady=(0,8))
+
+    chosen = {"val": None}
+    def _set(v): chosen["val"] = v; win.destroy()
+
+    for i, lab in enumerate(options):
+        ttk.Button(frm, text=lab, command=lambda v=lab: _set(v)).grid(row=1, column=i, padx=4)
+
+    win.bind("<Escape>", lambda _e: _set(None))
+    win.update_idletasks()
+    _center_on_parent(win, parent)
+    parent.wait_window(win)
+    return chosen["val"]
+
+def free_throw_reason_dialog(parent) -> str | None:
+    return choose_one_dialog(
+        parent, title="Free Throw Source",
+        prompt="Why was the free throw awarded?",
+        options=["And-1", "Technical", "Flagrant"],
+    )
 
 def game_metadata_dialog(parent) -> dict | None: 
     try: 
@@ -343,7 +381,8 @@ def dunk_or_layup_dialog(parent) -> str | None:
     win.title("Shot Type")                       
     win.transient(parent)                        
     win.resizable(False, False)                  
-    win.grab_set()                               
+    win.grab_set()
+    _apply_window_icons(win)                               
 
     frm = ttk.Frame(win, padding=12)             
     frm.grid(sticky="nsew")                      
