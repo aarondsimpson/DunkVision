@@ -137,7 +137,10 @@ def rename_team_dialog(parent: tk.Misc, current_name:str) -> Optional[str]:
     win.grab_set()
     parent.update_idletasks()
 
-    _apply_window_icons(win)
+    try: 
+        _apply_window_icons(win)
+    except Exception: 
+        pass
 
     frm = ttk.Frame(win, padding=12)
     frm.grid(sticky="nsew")
@@ -145,11 +148,15 @@ def rename_team_dialog(parent: tk.Misc, current_name:str) -> Optional[str]:
     frm.grid_rowconfigure(0, weight=1)
 
     name_var = tk.StringVar(value=current_name)
+    save_var = tk.BooleanVar(value=False)
                             
     ttk.Label(frm, text="Team Name").grid(row=0, column=0, padx=(0,6), sticky="w")
     entry = ttk.Entry(frm, textvariable=name_var, width=28)
     entry.grid(row=1, column=0, padx=0, pady=(0,12), sticky="ew")
     entry.select_range(0, tk.END)
+
+    save_cb = ttk.Checkbutton(frm, text="Save Team Roster", variable=save_var)
+    save_cb.grid(row=2, column=0, sticky="w", pady=(0,8))
 
     btns = ttk.Frame(win)
     btns.grid(row=2, column=0, pady=(0,0), sticky="e")
@@ -173,20 +180,21 @@ def rename_team_dialog(parent: tk.Misc, current_name:str) -> Optional[str]:
 
     win.bind("<Return>", lambda _: on_ok())
     win.bind("<Escape>", lambda _: on_cancel()) 
-    win.protocol("WM_DELETE_WINDOW", on_cancel)
+    
+    try: 
+        win.protocol("WM_DELETE_WINDOW", on_cancel)
+    except Exception: 
+        pass
 
     entry.focus_set()
-    win.update_idletasks()
     try: 
-        px, py = parent.winfo_rootx(), parent.winfo_rooty()
-        pw, ph = parent.winfo_width(), parent.winfo_height()
-        ww, wh = win.winfo_width(), win.winfo_height()
-        win.geometry(f"+{px + (pw-ww)//2}+{py + (ph-wh)//2}")
+        _center_on_parent(win, parent)
     except Exception: 
-        pass 
-
-    win.wait_window()
+        pass
+    win.deiconify()
+    parent.wait_window(win)
     return result[0]
+
 
 def shot_result_dialog(parent, *, show_and1: bool = True) -> dict | None:
     win = tk.Toplevel(parent)
@@ -420,3 +428,6 @@ def dunk_or_layup_dialog(parent) -> str | None:
 
     parent.wait_window(win)                      
     return result["val"]                         
+
+def _open_manage_teams_modal(self):
+    messagebox.showinfo("Manage Teams")

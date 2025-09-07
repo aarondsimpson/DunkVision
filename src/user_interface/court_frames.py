@@ -8,7 +8,7 @@ from pathlib import Path
 
 from src.user_interface.court_canvas import ScreenImage
 from src.user_interface.player_dialogs import confirm, info, error, resolve, confirm_action, shots_assigned
-from src.user_interface.modals import (add_player_dialog as add_player_modal, rename_team_dialog, 
+from src.user_interface.modals import (add_player_dialog as add_player_modal, rename_team_dialog, _open_manage_teams_modal,
                                        shot_result_dialog, dunk_or_layup_dialog, choose_one_dialog, free_throw_reason_dialog)
 from src.application_logic.zoning import resolve_zone
 from src.application_logic.zoning_configuration import shot_distance_from_hoop 
@@ -438,14 +438,26 @@ class CourtFrame(ttk.Frame):
         if team_key not in self.team_names:
             self.set_status(f"Unknown Team Key: {team_key}")
             return
+            
         current = self.team_names[team_key].get()
+
         new_name = rename_team_dialog(self, current)
         if not new_name or new_name == current: 
             return
+        
         self.team_names[team_key].set(new_name)
+
         if hasattr(self.sidebar, "refresh_team_dropdown"):
             self.sidebar.refresh_team_dropdown()
+
+        if hasattr(self, "databar") and hasattr(self.databar, "_sync_heading"):
+            try: 
+                self.databar._sync_heading(team_key)
+            except Exception: 
+                pass
+
         self.set_status(f"Team Renamed: {current} -> {new_name}")
+
 
     def refresh_stats(self):
         if hasattr(self, "databar") and hasattr(self.databar, "refresh_from_points"):
@@ -763,7 +775,7 @@ class SideBar(ttk.Frame):
         self.rename_btn = ttk.Button(
             self.inner, 
             text = "Rename Team", 
-            command=lambda: self.rename_team(self.controller.selected_team_key.get()))
+            command=lambda: self.controller.rename_team(self.controller.selected_team_key.get()))
         self.rename_btn.grid(row = 6, column = 0, padx = 9, pady = (0,10), sticky = "ew")
 
         self.player_buttons = []
@@ -835,7 +847,7 @@ class SideBar(ttk.Frame):
         def _add_disabled(label):
             menu.add_command(label=label, state = "disabled")
 
-        _add_disabled("- Actives Sides -")
+        _add_disabled("- Active Sides -")
         for key in self.controller.team_order:
             label=labels[key]
             menu.add_command(label=label, command=tk._setit(self.team_dropdown_var, label))
@@ -857,10 +869,8 @@ class SideBar(ttk.Frame):
                 )
 
         menu.add_separator()
-        menu.add_command(
-            label = "+ New Team",
-            command = self._create_new_team_via_modal
-        )
+        menu.add_command(label="+ New Team", command=self._create_new_team_via_modal)
+        menu.add_command(label="Manage Teams …", command=self._open_manage_teams_modal)
 
         current_key = self.controller.selected_team_key.get()
         self.team_dropdown_var.set(labels[current_key])
@@ -872,7 +882,7 @@ class SideBar(ttk.Frame):
                 return 
             key = self.controller.selected_team_key.get()
             self.controller.team_names[key].set(t.team_name)
-            self.controller.roster[key] = list(t.roster)
+            self.controller.rosters[key] = list(t.roster)
 
             self.refresh_team_dropdown()
             self.refresh_player_list()
@@ -884,36 +894,48 @@ class SideBar(ttk.Frame):
             pass 
 
     def _create_new_team_via_modal(self):
-        try: 
-            current_side = self.controller.selected_team_key.get()
-            curent_label = self.controller.team_names[current_side].get()
-            result = rename_team_dialog(self, initial_name="")
-        except Exception:
-            result = None
-
-        if result is None: 
-            return 
-
-        if isinstance(result, dict):
-            new_name = (result.get("name") or "").strip()
-            save_flag = bool(result.get("save"))
-        else: 
-            new_name = (str(result) or "").strip()
-            save_flag = True
-
-        if not new_name:
+        try:
+            result = rename_team_dialog(self, current_name="")
+        except Exception: 
+            result = None 
+        
+        if not result: 
             return 
         
-        key = self.controller.selected_team_key.get()
-        self.controller.team_names[key].set(new_name)
-        self.controller.rosters[key] = list(DEFAULT_ROSTER)
+        if isinstance(result, dict):
+            new_name = (result.get("name") or "").strip()
+            save_flag = bool(result.get("save", True))
+        else:
+            new_name = (str(result) or "").strip()
+            save_flag = True 
+
+        if not new_name:
+            return
+        
+        try:
+            TS.upsert_team(team_name=new_name, roster=list(DEFAULT_ROSTER))
+        except Exception:
+            pass
 
         self.refresh_team_dropdown()
-        self.refresh_player_list()
 
-        if hasattr(self.controller, "refresh_stats"):
-            self.controller.refresh_stats()
-        self.controller.set_status(f"Created team {new_name}" + (" (saved)" if save_flag else ""))
+        if messagebox.askyesno(
+            "Apply Team",
+            f"Apply “{new_name}” to the current side now?",
+            parent=self
+        ):
+            key = self.controller.selected_team_key.get()
+            self.controller.team_names[key].set(new_name)
+            self.controller.rosters[key] = list(DEFAULT_ROSTER)
+            self.refresh_player_list()
+            if hasattr(self.controller, "refresh_stats"):
+                self.controller.refresh_stats()
+            self.controller.set_status(f"Created & applied team “{new_name}”.")
+        else:
+            self.controller.set_status(f"Created team “{new_name}” (saved).")
+
+    def _open_manage_teams_modal(self):
+        messagebox.showinfo("Manage Teams", "Manage Teams dialog coming soon…", parent=self)
 
     def _delete_team_by_name(self, name: str):
         t = TS.get_team_by_name(name)
@@ -1119,57 +1141,6 @@ class SideBar(ttk.Frame):
         else:
             self.controller.set_status(f"Removed {name} from {team_label}")
 
-                                         
-    def rename_team(self, team_key: str):
-        if team_key not in self.team_names:
-            self.set_status(f"Unknown Team Key: {team_key}")
-            return
-
-        current = self.team_names[team_key].get()
-       
-        result = rename_team_dialog(self, current)
-        if result is None:
-            return
-
-        if isinstance(result, dict):
-            new_name = (result.get("name") or "").strip()
-            save_flag = bool(result.get("save"))
-        else:
-            new_name = (str(result) or "").strip()
-            save_flag = False 
-        
-        if not new_name or new_name == current:
-            return
-
-        # Update UI labels
-        name_changed = (new_name != current)
-        if name_changed: 
-            self.team_names[team_key].set(new_name)
-            if hasattr(self.sidebar, "refresh_team_dropdown"):
-                self.sidebar.refresh_team_dropdown()
-
-        # Persist if requested (or if a team with this name already exists)
-        roster = self.rosters.get(team_key, [])
-        did_save = False
-        try: 
-            team_exists = False
-            try: 
-                team_exists = bool(TS.get_team_by_name(new_name))
-            except Exception: 
-                team_exists = False
-            if save_flag or team_exists: 
-                TS.upsert_team(team_name=new_name, roster=roster)
-                did_save = True
-        except Exception: 
-            pass
-
-        if name_changed: 
-            self.set_status(f"Team Renamed: {current} -> {new_name}" + " )saved)" if did_save else "")
-        else: 
-            if did_save: 
-                self.set_status(f"Team '{new_name}' saved.")
-            else: 
-                self.set_status("No changes made.")
                 
     def get_selected_player_name(self) -> str | None: 
         try: 
