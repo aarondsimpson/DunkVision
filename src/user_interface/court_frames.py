@@ -86,9 +86,7 @@ class CourtFrame(ttk.Frame):
         c = self.center_canvas.canvas
         self._shot_markers: list[dict] = []
         
-        c.bind("<Button-1>", self._on_canvas_click, add="+")
-        def _reposition_after_render(_evt=None):
-            self.after_idle(self._reposition_markers)
+        c.bind("<Button-1>", self._on_canvas_click, add="+")     
         c.bind("<Configure>", lambda e: self.after_idle(self._reposition_markers), add="+")
 
         from src.application_logic.zoning_configuration import MASK
