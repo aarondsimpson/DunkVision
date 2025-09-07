@@ -28,6 +28,26 @@ MODE = {
         "list": "#41597F",
     }}
 
+def short_zone(label: str) -> str:
+    if not label: 
+        return "-"
+    base, sep, suffix = label.partition(" - ")
+    repl = {
+        "Left": "L",
+        "Right": "R",
+        "Outside": "Out",
+        "Wing": "Wg",
+        "Corner": "Cor",
+        "Top of Key": "Top",
+        "High Post": "High",
+        "Low Post": "Low",
+        "Free Throw": "FT",
+        "Above Break": "AB",
+    }
+    for k, v in repl.items():
+        base = base.replace(k, v)
+    return base + (f" - {suffix}" if sep else "")
+
 class CourtFrame(ttk.Frame):
     def __init__(self, parent, controller=None):
         super().__init__(parent)
@@ -538,6 +558,7 @@ class CourtFrame(ttk.Frame):
 
         meta = {
             "player": player_name, "zone": label,
+            "zone_key": str(kind),
             "r_ft": r_ft, "dx_ft": dx_ft, "dy_ft": dy_ft,
         }
         if not is_free_throw and and1:
@@ -1147,7 +1168,8 @@ class DataBar(ttk.Frame):
             pv["accuracy_fg"].set(fg)
             pv["avg_made_ft"].set(fmt_avg(made_d))
             pv["avg_missed_ft"].set(fmt_avg(missed_d))
-            pv["dom_zone"].set(dom); pv["weak_zone"].set(weak)
+            pv["dom_zone"].set(short_zone(dom))
+            pv["weak_zone"].set(short_zone(weak))
 
         for team_key in ("home", "away"): 
             s = stats[team_key]
@@ -1166,8 +1188,8 @@ class DataBar(ttk.Frame):
             vars["accuracy_fg"].set(pct)
             vars["avg_made_ft"].set(fmt_avg(s["made_dists"]))
             vars["avg_missed_ft"].set(fmt_avg(s["miss_dists"]))
-            vars["dom_zone"].set(dom)
-            vars["weak_zone"].set(weak)
+            vars["dom_zone"].set(short_zone(dom))
+            vars["weak_zone"].set(short_zone(weak))
 
         def _is_three_by_zone(z: str) -> bool:
             """Return True if the zone label clearly indicates a 3-pointer."""
@@ -1178,13 +1200,11 @@ class DataBar(ttk.Frame):
             if not p.get("made"):
                 return 0
             st = (p.get("shot_type") or "").strip().lower()
-            if st == "free throw" or p.get("ft_reason"):  # FT recorded as 1
+            if st == "free throw" or p.get("ft_reason"):  
                 return 1
-            # 3PT heuristic: explicit zone keywords OR distance fallback
             if _is_three_by_zone(p.get("zone")):
                 return 3
             try:
-                # Distance fallback: treat long shots as 3s (tune if needed)
                 if float(p.get("r_ft", 0)) >= 22.0:
                     return 3
             except Exception:
