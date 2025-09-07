@@ -444,20 +444,95 @@ class CourtFrame(ttk.Frame):
         new_name = rename_team_dialog(self, current)
         if not new_name or new_name == current: 
             return
+        new_name = (str(new_name) or "").strip()
         
+        def _norm(s: str) -> str:
+            return (s or "").strip().casefold()
+
+        try:
+            # prefer a normalized search across all saved teams
+            all_saved = TS.list_teams()
+            existing = next((t for t in all_saved if _norm(t.team_name) == _norm(new_name)), None)
+        except Exception:
+            # fall back to provided helper if list_teams unavailable
+            try:
+                t = TS.get_team_by_name(new_name)
+                existing = t
+            except Exception:
+                existing = None
+
+
+        if existing: 
+            use_saved = messagebox.askyesno(
+                "Team Already Saved", 
+                (f"A saved team named '{new_name}' already exists.\n\n"
+                 f"Do you want to use the existing team for this side?\n\n"
+            ))
+            if use_saved: 
+                try:
+                    self.team_names[team_key].set(existing.team_name)
+                    self.rosters[team_key] = list(existing.roster or [])
+                except Exception: 
+                    pass
+
+            if hasattr(self.sidebar, "refresh_team_dropdown"):
+                    self.sidebar.refresh_team_dropdown()
+            if hasattr(self.databar, "_sync_heading"):
+                    try:
+                        self.databar._sync_heading(team_key)
+                    except Exception:
+                        pass
+            self.set_status(f"Applied saved team: {existing.team_name}")
+            return
+        
+        overwrite = messagebox.askyesno(
+            "Overwrite Saved Team?", 
+            (f' Do you want to overwrite the saved roster for "{new_name}"'
+             f'with the current roster?\n\n'
+             f'Yes - Overwrite saved roster\nNo = Keep Both(Auto-Suffix Name)')
+            )
+        if overwrite:
+            # Overwrite the saved team’s roster with current side’s roster
+            try:
+                TS.upsert_team(team_name=new_name, roster=list(self.rosters.get(team_key, [])))
+                self.team_names[team_key].set(new_name)
+            except Exception:
+                pass
+
+            if hasattr(self.sidebar, "refresh_team_dropdown"):
+                self.sidebar.refresh_team_dropdown()
+            if hasattr(self.databar, "_sync_heading"):
+                try:
+                    self.databar._sync_heading(team_key)
+                except Exception:
+                    pass
+            self.set_status(f"Overwrote saved team: {new_name}")
+            return
+        
+        base = new_name
+        suffix = 2
+        while True:
+            candidate = f"{base} ({suffix})"
+            try:
+                clash = TS.get_team_by_name(candidate)
+            except Exception:
+                clash = None
+            if not clash:
+                new_name = candidate
+                break
+            suffix += 1
+
         self.team_names[team_key].set(new_name)
 
         if hasattr(self.sidebar, "refresh_team_dropdown"):
             self.sidebar.refresh_team_dropdown()
-
-        if hasattr(self, "databar") and hasattr(self.databar, "_sync_heading"):
-            try: 
+        if hasattr(self.databar, "_sync_heading"):
+            try:
                 self.databar._sync_heading(team_key)
-            except Exception: 
+            except Exception:
                 pass
 
-        self.set_status(f"Team Renamed: {current} -> {new_name}")
-
+        self.set_status(f"Team Renamed: {current} → {new_name}")
 
     def refresh_stats(self):
         if hasattr(self, "databar") and hasattr(self.databar, "refresh_from_points"):
@@ -912,11 +987,8 @@ class SideBar(ttk.Frame):
         if not new_name:
             return
         
-        try:
-            TS.upsert_team(team_name=new_name, roster=list(DEFAULT_ROSTER))
-        except Exception:
-            pass
-
+        TS.upsert_team(team_name=new_name, roster=list(DEFAULT_ROSTER))
+       
         self.refresh_team_dropdown()
 
         if messagebox.askyesno(

@@ -22,7 +22,7 @@ class Team:
     team_id: str
     team_name: str
     roster: List[str]
-    update_at: str
+    updated_at: str
     version: int = 1
 
     @staticmethod
@@ -32,17 +32,17 @@ class Team:
             team_id=rid,
             team_name=name,
             roster=list(roster or DEFAULT_ROSTER),
-            update_at=_now(),
+            updated_at=_now(),
             version=1,
         )
 def _now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
-def _safe_write_json(path: Path, paylod: dict) -> None: 
+def _safe_write_json(path: Path, payload: dict) -> None: 
     TMP_DIR.mkdir(parents=True, exist_ok=True)
     tmp = TMP_DIR / f"{path.name}.tmp"
     with tmp.open("w", encoding="utf-8") as f:
-        json.dump(paylod, f, ensure_ascii=False, indent=2)
+        json.dump(payload, f, ensure_ascii=False, indent=2)
     os.replace(tmp,path)
 
 def _empty_store() -> dict: 
@@ -53,7 +53,7 @@ def _ensure_defaults(store: dict) -> dict:
     changed = False 
     for tid, name in DEFAULT_TEAMS: 
         if tid not in existing_ids: 
-            store["store"].append(asdict(Team(
+            store["teams"].append(asdict(Team(
                 team_id=tid, 
                 team_name=name, 
                 roster=list(DEFAULT_ROSTER),
@@ -79,15 +79,15 @@ def load_store() -> dict:
         store = _empty_store()
         _safe_write_json(STORE_PATH, store)
         return _ensure_defaults(store)
-    
-    with STORE_PATH.open("r", encoding="utf-8") as f: 
-        store - json.load(f)
+
+    with STORE_PATH.open("r", encoding="utf-8") as f:
+        store = json.load(f)
 
     store = _upgrade_if_needed(store)
     store = _ensure_defaults(store)
-    if "teams" not in store: 
+    if "teams" not in store:
         store["teams"] = []
-    return store 
+    return store
 
 def list_teams() -> List[Team]:
     store = load_store()
@@ -114,7 +114,7 @@ def upsert_team(*, team_name: str, roster: List[str], team_id: Optional[str] = N
     if team_id: 
         for i, t in enumerate(teams):
             if t.get("team_id") == team_id:
-                idx - i 
+                idx = i 
                 break 
     if idx is None: 
         for i, t in enumerate(teams):
@@ -128,7 +128,7 @@ def upsert_team(*, team_name: str, roster: List[str], team_id: Optional[str] = N
         t = Team(**teams[idx])
         t.team_name = team_name
         t.roster = list(roster)
-        t.version =+ 1
+        t.version += 1
         t.update_at = _now()
 
     if idx is None: 
