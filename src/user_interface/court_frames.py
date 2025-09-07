@@ -53,6 +53,9 @@ class CourtFrame(ttk.Frame):
         }
         self.selected_team_key=tk.StringVar(value="home")
 
+        self.home_score = tk.IntVar(value=0)
+        self.away_score = tk.IntVar(value=0)
+
         #Layout Scaffold
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, minsize=SIDE_WIDTH)
@@ -74,6 +77,10 @@ class CourtFrame(ttk.Frame):
             on_export_csv=self.export_csv,
             on_export_json=self.export_json,
             quarter_var=self.quarter, 
+            home_score_var = self.home_score,
+            away_score_var = self.away_score,
+            home_name_var = self.team_names["home"],
+            away_name_var = self.team_names["away"],
             )
         self.topbar.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0,4))
 
@@ -606,6 +613,10 @@ class TopBar(ttk.Frame):
             on_save_game=None, on_reset_game=None,  
             on_export_image=None, on_export_json=None, on_export_csv=None,
             quarter_var: tk.StringVar | None=None,
+            home_score_var: tk.IntVar | None=None, 
+            away_score_var: tk.IntVar | None=None,
+            home_name_var: tk.StringVar | None=None,
+            away_name_var: tk.StringVar | None=None, 
     ):              
         super().__init__(parent, padding=(8, 10))
         self.grid_propagate(False)
@@ -627,7 +638,8 @@ class TopBar(ttk.Frame):
         ttk.Button(left, text="Theme", command=on_toggle_mode or (lambda:None)).grid(row=0, column=2, padx=3)
 
         mid=ttk.Frame(self)
-        mid.grid(row=0, column=1, sticky = "n", pady=6)
+        mid.grid(row=0, column=1, sticky = "nsew", pady=6) 
+        mid.grid_propagate(True)
 
         ttk.Button(mid, text="Undo", command=on_undo_action or (lambda:None)).grid(row=0, column=0, padx=3)
         ttk.Button(mid, text="Redo", command=on_redo_action or (lambda:None)).grid(row=0, column=1, padx=3)
@@ -641,9 +653,24 @@ class TopBar(ttk.Frame):
                 command=(lambda qq=quarter: (on_select_quarter or (lambda _q: None))(qq))
             ).grid(row=0, column= base_column +index, padx=3)
 
-        end_button_column = base_column + len(quarters)
-        ttk.Button(mid, text="End Game", command=on_end_game or (lambda:None)
-                   ).grid(row=0, column = end_button_column, padx=(12,3))
+        sb_col = base_column + len(quarters)
+        mid.grid_columnconfigure(sb_col, weight =1)
+        sb = ttk.Frame(mid, padding =(8, 0))
+        sb.grid(row=0, column=sb_col, padx=(12,3), sticky="nsew")
+
+        sb.grid_rowconfigure(0, weight = 1)
+        sb.grid_rowconfigure(2, weight = 1)
+
+        hname = home_name_var or tk.StringVar(value="Home")
+        hscore = home_score_var or tk.IntVar(value=0)
+        aname = away_name_var or tk.StringVar(value="Away")
+        ascore = away_score_var or tk.IntVar(value=0)
+
+        ttk.Label(sb, textvariable=hname).grid(row=0, column=0, padx=(0,4))
+        ttk.Label(sb, textvariable=hscore, font=("TkDefaultFont", 10, "bold")).grid(row=0, column=1)
+        ttk.Label(sb, text="-").grid(row=0, column=2, padx=4)
+        ttk.Label(sb, textvariable=ascore, font=("TkDefaultFont", 10, "bold")).grid(row=0, column=3)
+        ttk.Label(sb, textvariable=aname).grid(row=0, column=4, padx=(4,0))
 
 
         right=ttk.Frame(self)
@@ -1142,6 +1169,43 @@ class DataBar(ttk.Frame):
             vars["dom_zone"].set(dom)
             vars["weak_zone"].set(weak)
 
+        def _is_three_by_zone(z: str) -> bool:
+            """Return True if the zone label clearly indicates a 3-pointer."""
+            z = (z or "").lower()
+            return any(tok in z for tok in ("3pt", "3-pt", "three", "corner 3", "wing 3", "top 3", "3 point", "3-pointer"))
+
+        def _points_for(p: dict) -> int:
+            if not p.get("made"):
+                return 0
+            st = (p.get("shot_type") or "").strip().lower()
+            if st == "free throw" or p.get("ft_reason"):  # FT recorded as 1
+                return 1
+            # 3PT heuristic: explicit zone keywords OR distance fallback
+            if _is_three_by_zone(p.get("zone")):
+                return 3
+            try:
+                # Distance fallback: treat long shots as 3s (tune if needed)
+                if float(p.get("r_ft", 0)) >= 22.0:
+                    return 3
+            except Exception:
+                pass
+            return 2
+
+        home_pts = sum(_points_for(p) for p in (points or []) if p.get("team") == "home")
+        away_pts = sum(_points_for(p) for p in (points or []) if p.get("team") == "away")
+
+        if hasattr(self.controller, "home_score"):
+            try:
+                self.controller.home_score.set(int(home_pts))
+            except Exception:
+                self.controller.home_score.set(0)
+
+        if hasattr(self.controller, "away_score"):
+            try:
+                self.controller.away_score.set(int(away_pts))
+            except Exception:
+                self.controller.away_score.set(0)
+
     def _make_player_section(self, parent, row: int):
         box = ttk.LabelFrame(parent, text="", padding=8)
         box.grid(row = row, column = 0, sticky = "nsew", padx = 8, pady = (0,8))
@@ -1172,7 +1236,21 @@ class DataBar(ttk.Frame):
         
         self._player_vars = vars 
         return box 
+
+    def _points_for(self, p:dict) -> int:
+        if not p.get("made"):
+            return 0
         
+        st = (p.get("shot_type") or "").strip().lower()
+        if st == "free throw": 
+            return 1
+        
+        z = (p.get("zone") or "").strip().lower()
+        if "3pt" in z or "three" in z or "3" in z: 
+            return 3
+        
+        return 2
+
     def _zone_strength(self, shots: list[dict]) -> tuple[str, str]:
         per = {}
         for p in shots:
