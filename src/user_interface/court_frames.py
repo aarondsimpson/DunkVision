@@ -693,10 +693,9 @@ class SideBar(ttk.Frame):
         self.team_dropdown.grid(row=1, column=0, sticky="ew", padx=8)
         
         #Player List Container
-        self.player_list_frame = ttk.Frame(self.inner, style="PlayerList.TFrame")
-        self.player_list_frame.grid(row=2, column=0, sticky="nsew", padx=8, pady=(8,10))
-        self.inner.rowconfigure(2, weight=1)
-        self.inner.columnconfigure(0, weight=1)
+        self._make_scrollable_player_list(self.inner)                      
+        self.inner.rowconfigure(2, weight=1)                               
+        self.inner.columnconfigure(0, weight=1) 
 
         #Add and Remove Buttons
         self.add_btn = ttk.Button(self.inner, text="Add Player", command=self.add_player)
@@ -721,6 +720,51 @@ class SideBar(ttk.Frame):
         self.refresh_team_dropdown()
         self.team_dropdown_var.trace_add("write", lambda *_: self.on_team_change())
         self.refresh_player_list() 
+
+    def _make_scrollable_player_list(self, parent):                          
+        container = ttk.Frame(parent, style="PlayerList.TFrame")             
+        container.grid(row=2, column=0, sticky="nsew", padx=8, pady=(8,10))  
+
+        # Scrollbar on the LEFT
+        vbar = ttk.Scrollbar(container, orient="vertical")               
+        vbar.grid(row=0, column=0, sticky="ns")                               
+
+        self._pl_canvas = tk.Canvas(
+            container, highlightthickness=0, bd=0,
+            background=self.card.cget("bg"),
+            yscrollcommand=vbar.set
+        )
+        self._pl_canvas.grid(row=0, column=1, sticky="nsew")                  
+
+        vbar.configure(command=self._pl_canvas.yview)
+
+        container.rowconfigure(0, weight=1)                                   
+        container.columnconfigure(1, weight=1)
+
+        self.player_list_frame = ttk.Frame(self._pl_canvas, style="PlayerList.TFrame")         
+        self._pl_window = self._pl_canvas.create_window(
+            (0, 0), window=self.player_list_frame, anchor="nw"
+        )                                                                
+                                          
+        def _sync_scrollregion(_e=None):                                      
+            self._pl_canvas.configure(scrollregion=self._pl_canvas.bbox("all"))                     
+            self._pl_canvas.itemconfigure(self._pl_window,                    
+                                        width=self._pl_canvas.winfo_width()) 
+        self.player_list_frame.bind("<Configure>", _sync_scrollregion)       
+        self._pl_canvas.bind("<Configure>", _sync_scrollregion)              
+                            
+        self._bind_mousewheel(self._pl_canvas)                               
+
+    def _bind_mousewheel(self, widget):                                                                                    
+        widget.bind_all("<MouseWheel>", lambda e:                             
+                        widget.yview_scroll(int(-1*(e.delta/120)), "units"))  
+        # Linux (legacy)                                                      
+        widget.bind_all("<Button-4>", lambda e: widget.yview_scroll(-3, "units"))  
+        widget.bind_all("<Button-5>", lambda e: widget.yview_scroll(3, "units"))   
+        # macOS                                                                
+        widget.bind_all("<Shift-MouseWheel>",                                  
+                        lambda e: widget.yview_scroll(int(-1*(e.delta/120)), "units"))
+
 
     def labels(self):
         tn = self.controller.team_names
@@ -762,11 +806,20 @@ class SideBar(ttk.Frame):
             b.pack(fill="x", padx=6, pady=2)
             self.player_buttons.append(b)
 
+        if hasattr(self, "_pl_canvas"):
+            self._pl_canvas.update_idletasks()
+            self._pl_canvas.configure(scrollregion=self._pl_canvas.bbox("all"))
+
+
     def set_card_colors(self, fill, border):
         self.card.configure(bg=fill, highlightbackground=border)
         style = ttk.Style(self)
         style.configure("CardInner.TFrame", background=fill)
         style.configure("PlayerList.TFrame", background=fill)
+        try: 
+            self._pl_canvas.configure(background=fill)
+        except Exception:
+            pass
 
     #Button Handlers 
     
