@@ -5,14 +5,13 @@
       "team_id": "t_default_home",
       "team_name": "My Team",
       "roster": [
-        "Point Guard",
         "Shooting Guard",
         "Small Forward",
         "Power Forward",
         "Center"
       ],
       "updated_at": "2025-09-07T16:23:11Z",
-      "version": 1
+      "version": 6
     },
     {
       "team_id": "t_default_away",
@@ -33,12 +32,11 @@
       "roster": [
         "Point Guard",
         "Shooting Guard",
-        "Small Forward",
         "Power Forward",
         "Center"
       ],
       "updated_at": "2025-09-07T19:08:07Z",
-      "version": 1
+      "version": 2
     },
     {
       "team_id": "t_a021740f",
@@ -65,6 +63,32 @@
       ],
       "updated_at": "2025-09-07T20:13:05Z",
       "version": 2
+    },
+    {
+      "team_id": "t_8f0e208e",
+      "team_name": "Mechanicsville High School",
+      "roster": [
+        "Point Guard",
+        "Shooting Guard",
+        "Small Forward",
+        "Power Forward",
+        "Center"
+      ],
+      "updated_at": "2025-09-07T20:28:05Z",
+      "version": 1
+    },
+    {
+      "team_id": "t_9cd66043",
+      "team_name": "Octopus Team",
+      "roster": [
+        "Point Guard",
+        "Shooting Guard",
+        "Small Forward",
+        "Power Forward",
+        "Center"
+      ],
+      "updated_at": "2025-09-07T21:02:45Z",
+      "version": 1
     }
   ]
 }

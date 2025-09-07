@@ -771,22 +771,20 @@ class TopBar(ttk.Frame):
 
         sb_col = base_column + len(quarters)
         mid.grid_columnconfigure(sb_col, weight =1)
+        
         sb = ttk.Frame(mid, padding =(8, 0))
         sb.grid(row=0, column=sb_col, padx=(12,3), sticky="nsew")
-
         sb.grid_rowconfigure(0, weight = 1)
         sb.grid_rowconfigure(2, weight = 1)
 
-        hname = home_name_var or tk.StringVar(value="Home")
         hscore = home_score_var or tk.IntVar(value=0)
-        aname = away_name_var or tk.StringVar(value="Away")
         ascore = away_score_var or tk.IntVar(value=0)
 
-        ttk.Label(sb, textvariable=hname).grid(row=0, column=0, padx=(0,4))
+        ttk.Label(sb, text="My Team").grid(row=0, column=0, padx=(0,4))
         ttk.Label(sb, textvariable=hscore, font=("TkDefaultFont", 10, "bold")).grid(row=0, column=1)
         ttk.Label(sb, text="-").grid(row=0, column=2, padx=4)
         ttk.Label(sb, textvariable=ascore, font=("TkDefaultFont", 10, "bold")).grid(row=0, column=3)
-        ttk.Label(sb, textvariable=aname).grid(row=0, column=4, padx=(4,0))
+        ttk.Label(sb, text="Their Team").grid(row=0, column=4, padx=(4,0))
 
 
         right=ttk.Frame(self)
@@ -944,8 +942,8 @@ class SideBar(ttk.Frame):
                 )
 
         menu.add_separator()
-        menu.add_command(label="+ New Team", command=self._create_new_team_via_modal)
-        menu.add_command(label="Manage Teams …", command=self._open_manage_teams_modal)
+        menu.add_command(label="Add New Team", command=self._create_new_team_via_modal)
+        menu.add_command(label="Manage Teams", command=self._open_manage_teams_modal)
 
         current_key = self.controller.selected_team_key.get()
         self.team_dropdown_var.set(labels[current_key])
@@ -1155,19 +1153,23 @@ class SideBar(ttk.Frame):
         key = self.controller.selected_team_key.get()
         team_label = self.controller.team_names[key].get()
 
-        affected_shots = [p for p in self.controller.data_points                  
-                            if p.get("team") == key and p.get("player") == name]  
+        affected_shots = [
+            p for p in self.controller.data_points                  
+            if p.get("team") == key and p.get("player") == name]  
 
         if affected_shots:                                                            
             if not confirm(
                 "shots_assigned", self,
                 name=name, team=team_label,
-                count=len(affected_shots)):
-                return  
-            else: 
-                if not confirm("confirm_remove_player", self, name=name, team=team_label):
-                    return
-                
+                count=len(affected_shots)
+                ):
+                return
+            if not confirm("confirm_remove_player", self, name=name, team=team_label):
+                        return  
+        else: 
+            if not confirm("confirm_remove_player", self, name=name, team=team_label):
+                return 
+            
         try: 
             idx = self.controller.rosters[key].index(name)
         except ValueError:
