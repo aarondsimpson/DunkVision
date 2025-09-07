@@ -7,7 +7,7 @@ from PIL import Image, ImageTk
 from pathlib import Path
 
 from src.user_interface.court_canvas import ScreenImage
-from src.user_interface.player_dialogs import confirm, info, error, resolve, confirm_action
+from src.user_interface.player_dialogs import confirm, info, error, resolve, confirm_action, shots_assigned
 from src.user_interface.modals import (add_player_dialog as add_player_modal, rename_team_dialog, 
                                        shot_result_dialog, dunk_or_layup_dialog, choose_one_dialog, free_throw_reason_dialog)
 from src.application_logic.zoning import resolve_zone
@@ -213,16 +213,30 @@ class CourtFrame(ttk.Frame):
         elif action.get("type") == "remove_player":                                    
             team = action["team"]; name = action["name"]; idx = action.get("index")    
             roster = self.rosters.get(team, [])
+
             ins = idx if isinstance(idx, int) and 0 <= idx <= len(roster) else len(roster)
-            roster.insert(ins, name)                                                   
+            roster.insert(ins, name)  
+
+            for p in action.get("shot_refs", []):
+                try:
+                    if p.get("team") == team:
+                        p["player"] = name
+                except Exception:
+                    pass
+
             if self.selected_team_key.get() != team:                                   
                 self.selected_team_key.set(team)                                       
                 self.sidebar.refresh_team_dropdown()                                   
-            self.sidebar.refresh_player_list()                                         
-            self.set_status(f"Undid: Remove Player ({name})")                          
+            self.sidebar.refresh_player_list()       
+            self.refresh_stats()     
 
-        else:
-            self.set_status(f"Undid: {action.get('type','action')}")
+            cnt = len(action.get("shot_refs", []) or [])
+            if cnt: 
+                self.set_status(
+                    f"Undid: Remove Player ({name}) - Reassigned {cnt} shot{'s' if cnt != 1 else ''}"
+                )  
+            else:
+                self.set_status(f"Undid: Remove Player ({name})")                          
 
         
     def redo_action(self):
@@ -270,6 +284,7 @@ class CourtFrame(ttk.Frame):
         elif action.get("type") == "remove_player":                                    
             team = action["team"]; name = action["name"]; idx = action.get("index")    
             roster = self.rosters.get(team, [])
+           
             try:
                 if idx is not None and 0 <= idx < len(roster) and roster[idx] == name:
                     roster.pop(idx)                                                    
@@ -277,14 +292,27 @@ class CourtFrame(ttk.Frame):
                     roster.remove(name)                                                
             except ValueError:
                 pass
+
+            for p in action.get("shot_refs", []):
+                try:
+                    if p.get("team") == team: 
+                        p["player"] = "Unassigned"
+                except Exception: 
+                    pass
+
             if self.selected_team_key.get() != team:                                   
                 self.selected_team_key.set(team)                                       
                 self.sidebar.refresh_team_dropdown()                                   
-            self.sidebar.refresh_player_list()                                         
-            self.set_status(f"Redid: Remove Player ({name})")                          
+            self.sidebar.refresh_player_list()  
+            self.refresh_stats()    
 
-        else:
-            self.set_status(f"Redid: {action.get('type','action')}")
+            cnt = len(action.get("shot_refs", []) or [])
+            if cnt: 
+                self.set_status(
+                    f"Redid: Remove Player ({name}) - set {cnt} shot{'s' if cnt != 1 else ''} to 'Unassigned'"
+                )
+            else: 
+                self.set_status(f"Redid: Remove Player ({name})")                          
 
 
     def select_quarter(self, q:str):
@@ -826,13 +854,28 @@ class SideBar(ttk.Frame):
         name = self.selected_player_button.cget("text")
         key = self.controller.selected_team_key.get()
         team_label = self.controller.team_names[key].get()
-        if not confirm("confirm_remove_player", self, name=name, team=team_label):
-            return
-       
-        try:                                                                               
-            idx = self.controller.rosters[key].index(name)                                 
-        except ValueError:                                                                 
-            idx = None                                                                     
+
+        affected_shots = [p for p in self.controller.data_points                  
+                            if p.get("team") == key and p.get("player") == name]  
+
+        if affected_shots:                                                            
+            if not confirm(
+                "shots_assigned", self,
+                name=name, team=team_label,
+                count=len(affected_shots)):
+                return  
+            else: 
+                if not confirm("confirm_remove_player", self, name=name, team=team_label):
+                    return
+                
+        try: 
+            idx = self.controller.rosters[key].index(name)
+        except ValueError:
+            idx = None
+
+        if affected_shots:
+            for p in affected_shots: 
+                p["player"] = "Unassigned"
 
         try:
             self.controller.rosters[key].remove(name)
@@ -843,17 +886,25 @@ class SideBar(ttk.Frame):
             "type": "remove_player",                                               
             "team": key,                                                           
             "name": name,                                                          
-            "index": idx,                                                          
+            "index": idx,
+            "shot_refs": affected_shots,                                                          
         })                                                        
         self.controller.redo_stack.clear()                                      
-
+    
         self.selected_player_button = None
-        if hasattr(self, "remove_btn"):
-            self.remove_btn.configure(state="disabled")
+        self.remove_btn.configure(state="disabled")
         self.refresh_player_list()
+        self.selected_player_var.set("")
+        self.controller.refresh_stats()
 
-        if hasattr(self, "selected_player_var"):                                          
-            self.selected_player_var.set("")
+        # Status
+        if affected_shots:
+            self.controller.set_status(
+                f"Removed {name} — {len(affected_shots)} shots set to 'Unassigned'"
+            )
+        else:
+            self.controller.set_status(f"Removed {name} from {team_label}")
+
                                          
     def rename_team(self):
         labels=self.labels()

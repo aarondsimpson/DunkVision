@@ -34,7 +34,11 @@ MESSAGES: dict[str, dict[str, str]] = {
         "title": "Export Failed", 
         "message": 
             "Sorry, I couldn't save the image to {path}"
-        }
+        }, 
+    "shots_assigned": {
+        "title": "Assigned Shots",
+        "message": "Player has shots. Removing will cause shots to be unassigned.",
+    },
     }
 
 def resolve(key_or_title: str, message: str | None = None, **fmt) -> tuple[str, str]:
@@ -83,3 +87,8 @@ def error(key_or_title: str, parent: Misc | None=None, message: str | None=None,
     title, text = resolve(key_or_title, message, **fmt)
     master = None if parent is None else parent.winfo_toplevel()
     messagebox.showerror(title, text, parent=master)
+
+def shots_assigned(key_or_title: str, parent: Misc | None=None, message: str | None=None, **fmt) -> None: 
+    title, text = resolve(key_or_title, message, **fmt)
+    master = None if parent is None else parent.winfo_toplevel()
+    messagebox.askyesno(title, text, parent=master)
