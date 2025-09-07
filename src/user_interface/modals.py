@@ -360,7 +360,10 @@ def game_metadata_dialog(parent) -> dict | None:
         win.destroy()
 
     def on_cancel():
-        result[0] = None
+        result[0] = {
+            "date": date.today().isoformat(),
+            "location": "Unknown",
+        }
         win.destroy()
 
     ttk.Button(btns, text="Cancel", command=on_cancel).grid(row=0, column=0, padx=(0, 6))
@@ -368,6 +371,7 @@ def game_metadata_dialog(parent) -> dict | None:
 
     win.bind("<Return>", lambda _: on_ok())
     win.bind("<Escape>", lambda _: on_cancel())
+    win.protocol("WM_DELETE_WINDOW", on_cancel)
 
     # focus and center
     loc_ent.focus_set()
