@@ -8,7 +8,7 @@ from pathlib import Path
 
 from src.user_interface.court_canvas import ScreenImage
 from src.user_interface.player_dialogs import confirm, info, error, resolve, confirm_action, shots_assigned
-from src.user_interface.modals import (add_player_dialog as add_player_modal, rename_team_dialog, _open_manage_teams_modal,
+from src.user_interface.modals import (add_player_dialog as add_player_modal, rename_team_dialog, manage_teams_modal,
                                        shot_result_dialog, dunk_or_layup_dialog, choose_one_dialog, free_throw_reason_dialog)
 from src.application_logic.zoning import resolve_zone
 from src.application_logic.zoning_configuration import shot_distance_from_hoop 
@@ -1005,7 +1005,84 @@ class SideBar(ttk.Frame):
             self.controller.set_status(f"Created team “{new_name}” (saved).")
 
     def _open_manage_teams_modal(self):
-        messagebox.showinfo("Manage Teams", "Manage Teams dialog coming soon…", parent=self)
+        try:
+            saved = [t.team_name for t in TS.list_teams()]
+        except Exception:
+            saved = []
+
+        from src.user_interface.modals import manage_teams_modal
+        action = manage_teams_modal(self, team_names=saved)
+        if not action:
+            return
+
+        kind = action.get("action")
+        name = (action.get("name") or "").strip()
+        if not name:
+            return
+
+        # helpers
+        def _apply_to(side_key: str):
+            t = TS.get_team_by_name(name)
+            if not t:
+                return
+            self.controller.team_names[side_key].set(t.team_name)
+            self.controller.rosters[side_key] = list(t.roster or [])
+            self.refresh_team_dropdown()
+            self.refresh_player_list()
+            if hasattr(self.controller, "refresh_stats"):
+                self.controller.refresh_stats()
+            self.controller.set_status(f"Applied '{t.team_name}' to {side_key.title()}.")
+
+        if kind == "apply_home":
+            _apply_to("home"); return
+        if kind == "apply_away":
+            _apply_to("away"); return
+
+        if kind == "delete":
+            if messagebox.askyesno("Delete Team",
+                                f"Delete saved team '{name}'?\n(This does not affect past games.)",
+                                parent=self):
+                t = TS.get_team_by_name(name)
+                if t and TS.delete_team(t.team_id):
+                    self.refresh_team_dropdown()
+                    self.controller.set_status(f"Deleted saved team: {name}")
+            return
+
+        if kind == "rename":
+            new_name = (action.get("new_name") or "").strip()
+            if not new_name or new_name == name:
+                return
+
+            # collision policy: overwrite / keep both / cancel
+            existing = TS.get_team_by_name(new_name)
+            if existing:
+                overwrite = messagebox.askyesno(
+                    "Team Already Exists",
+                    (f"'{new_name}' already exists. Overwrite that roster?"),
+                    parent=self)
+                
+                if not overwrite:
+                    # keep both — auto-suffix
+                    base, n = new_name, 2
+                    while TS.get_team_by_name(f"{base} ({n})"):
+                        n += 1
+                    new_name = f"{base} ({n})"
+
+            # perform rename by read->write (using upsert with same roster)
+            t = TS.get_team_by_name(name)
+            if not t:
+                return
+            TS.upsert_team(team_name=new_name, roster=list(t.roster or []))
+            # delete old if we truly renamed (not keep-both)
+            if new_name != name and existing and overwrite:
+                TS.delete_team(existing.team_id)
+            if name != new_name:
+                old = TS.get_team_by_name(name)
+                if old:
+                    TS.delete_team(old.team_id)
+            self.refresh_team_dropdown()
+            self.controller.set_status(f"Renamed team: {name} → {new_name}")
+            return
 
     def _delete_team_by_name(self, name: str):
         t = TS.get_team_by_name(name)

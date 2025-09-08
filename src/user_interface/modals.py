@@ -2,7 +2,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 from typing import Optional, Dict
 from datetime import date
 import calendar as _calendar
@@ -429,5 +429,65 @@ def dunk_or_layup_dialog(parent) -> str | None:
     parent.wait_window(win)                      
     return result["val"]                         
 
-def _open_manage_teams_modal(self):
-    messagebox.showinfo("Manage Teams")
+def manage_teams_modal(parent, *, team_names: list[str]) -> dict | None:
+    win = tk.Toplevel(parent)
+    win.title("Manage Teams")
+    win.transient(parent)
+    win.resizable(False, False)
+    win.grab_set()
+    _apply_window_icons(win)
+
+    frm = ttk.Frame(win, padding=12)
+    frm.grid(sticky="nsew")
+
+    ttk.Label(frm, text="Saved Teams").grid(row=0, column=0, sticky="w")
+    names = team_names[:] or []
+    sel = tk.StringVar(value=names[0] if names else "")
+
+    dd = ttk.OptionMenu(frm, sel, sel.get(), *names)  # empty is ok
+    dd.grid(row=1, column=0, sticky="ew", pady=(2, 10))
+    frm.grid_columnconfigure(0, weight=1)
+
+    btn_row1 = ttk.Frame(frm); btn_row1.grid(row=2, column=0, sticky="ew", pady=(0, 8))
+    btn_row2 = ttk.Frame(frm); btn_row2.grid(row=3, column=0, sticky="ew")
+
+    result = {"val": None}
+
+    def _need_sel() -> str | None:
+        name = sel.get().strip()
+        if not name:
+            messagebox.showinfo("Manage Teams", "No saved teams yet.", parent=win)
+            return None
+        return name
+
+    def _set(val): result["val"] = val; win.destroy()
+
+    ttk.Button(btn_row1, text="Apply to Home",
+               command=lambda: (_set({"action":"apply_home","name":_need_sel()})
+                                if _need_sel() else None)
+               ).pack(side="left", padx=(0,6))
+
+    ttk.Button(btn_row1, text="Apply to Away",
+               command=lambda: (_set({"action":"apply_away","name":_need_sel()})
+                                if _need_sel() else None)
+               ).pack(side="left")
+
+    ttk.Button(btn_row2, text="Rename",
+               command=lambda: (
+                   lambda _n=_need_sel():
+                       _set({"action":"rename","name":_n,"new_name":
+                            simpledialog.askstring("Rename Team", f"Rename '{_n}' to:", parent=win) or ""})
+                   )() if _need_sel() else None
+               ).pack(side="left", padx=(0,6))
+
+    ttk.Button(btn_row2, text="Delete",
+               command=lambda: (_set({"action":"delete","name":_need_sel()})
+                                if _need_sel() else None)
+               ).pack(side="left")
+
+    ttk.Button(frm, text="Close", command=lambda: _set(None)).grid(row=4, column=0, sticky="e", pady=(10,0))
+
+    _center_on_parent(win, parent)
+    win.deiconify()
+    parent.wait_window(win)
+    return result["val"]
