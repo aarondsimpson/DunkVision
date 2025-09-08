@@ -8,7 +8,7 @@ from pathlib import Path
 
 from src.user_interface.court_canvas import ScreenImage
 from src.user_interface.player_dialogs import confirm, info, error, resolve, confirm_action, shots_assigned
-from src.user_interface.modals import (add_player_dialog as add_player_modal, rename_team_dialog, manage_teams_modal,
+from src.user_interface.modals import (add_player_dialog as add_player_modal, rename_team_dialog, manage_teams_modal, manage_players_dialog,
                                        shot_result_dialog, dunk_or_layup_dialog, choose_one_dialog, free_throw_reason_dialog)
 from src.application_logic.zoning import resolve_zone
 from src.application_logic.zoning_configuration import shot_distance_from_hoop 
@@ -836,21 +836,9 @@ class SideBar(ttk.Frame):
         self.inner.rowconfigure(2, weight=1)                               
         self.inner.columnconfigure(0, weight=1) 
 
-        #Add and Remove Buttons
-        self.add_btn = ttk.Button(self.inner, text="Add Player", command=self.add_player)
-        self.add_btn.grid(row = 3, column = 0, padx = 8, pady = (6,4), sticky = "ew")
-
-        self.remove_btn = ttk.Button(self.inner, text = "Remove Player", command=self.remove_selected_player, state = "disabled")
-        self.remove_btn.grid(row = 4, column = 0, padx = 8, pady = (0,8), sticky = "ew")
-
-        ttk.Separator(self.inner, orient = "horizontal").grid(row = 5, column = 0, padx = 8, pady= (0,6), sticky = "ew")
-
-        self.rename_btn = ttk.Button(
-            self.inner, 
-            text = "Rename Team", 
-            command=lambda: self.controller.rename_team(self.controller.selected_team_key.get()))
-        self.rename_btn.grid(row = 6, column = 0, padx = 9, pady = (0,10), sticky = "ew")
-
+        self.manage_btn = ttk.Button(self.inner, text="Manage Players", command=self.manage_players)
+        self.manage_btn.grid(row=3, column=0, padx=8, pady=(8,10), sticky="ew")
+        
         self.player_buttons = []
         self.selected_player_button = None #track selection
         self.selected_player_name = None
@@ -907,7 +895,92 @@ class SideBar(ttk.Frame):
         widget.bind_all("<Shift-MouseWheel>",                                  
                         lambda e: widget.yview_scroll(int(-1*(e.delta/120)), "units"))
 
+    def manage_players(self):
+        key = self.controller.selected_team_key.get()
+        roster = list(self.controller.rosters.get(key, []))
+        initial = self.selected_player_var.get().strip() or None
 
+        result = manage_players_dialog(self, players=roster, initial=initial)
+        if not result:
+            return
+        
+        action = result.get("action")
+        if action == "add":
+            name = result["name"]
+            if name in roster:
+                self.controller.set_status(f"'{name}' already on roster.")
+                return
+             
+            self.controller.rosters[key].append(name)
+            self.controller.actions.append({
+                "type": "add_player",
+                "team": key,
+                "name": name,
+                "position": "",     
+                "index": len(self.controller.rosters[key]) - 1,
+            })
+            self.controller.redo_stack.clear()
+            self.refresh_player_list()
+            self._select_button_by_text(name)
+            self._persist_if_saved(key)
+            self.controller.set_status(f"Added {name}")
+
+        elif action == "rename":
+            old = result["old"]
+            new = result["new"]
+            self._rename_player(key, old, new)
+
+        elif action == "remove":
+            self._select_button_by_text(result["name"])
+            self.remove_selected_player()
+    
+    def _persist_if_saved(self, key: str):
+        try:
+            tname = self.controller.team_names[key].get()
+            roster = self.controller.rosters[key]
+            from session_data import team_store as TS
+            if TS.get_team_by_name(tname):
+                TS.upsert_team(team_name=tname, roster=roster)
+        except Exception:
+            pass
+
+    def _rename_player(self, key: str, old: str, new: str):
+        roster = self.controller.rosters.get(key, [])
+        if old not in roster:
+            self.controller.set_status(f"'{old}' not found.")
+            return
+        if new in roster and new != old:
+            self.controller.set_status(f"'{new}' already exists.")
+            return
+
+        # Update roster list
+        idx = roster.index(old)
+        roster[idx] = new
+
+        # Update any shots referencing this player for this team
+        for p in self.controller.data_points:
+            if p.get("team") == key and p.get("player") == old:
+                p["player"] = new
+
+        # (Optional) record action for undo/redo later
+        self.controller.actions.append({
+            "type": "rename_player",
+            "team": key,
+            "old": old,
+            "new": new,
+            "index": idx,
+        })
+        self.controller.redo_stack.clear()
+
+        # UI refresh
+        self.refresh_player_list()
+        self._select_button_by_text(new)
+        self.controller.refresh_stats()
+        self._persist_if_saved(key)
+        self.controller.set_status(f"Renamed player: {old} → {new}")
+
+
+    
     def labels(self):
         tn = self.controller.team_names
         return {"home": tn["home"].get(), "away": tn["away"].get()}
@@ -1110,8 +1183,7 @@ class SideBar(ttk.Frame):
         self.selected_player_button = None
         self.selected_player_name = None
         self.selected_player_var.set("")      
-        self.remove_btn.configure(state="disabled")
-
+        
         key = self.controller.selected_team_key.get()
         for role_or_name in self.controller.rosters[key]:
             b = ttk.Button(self.player_list_frame, text=role_or_name, style="Player.TButton")
@@ -1145,7 +1217,6 @@ class SideBar(ttk.Frame):
             self.selected_player_button=None
             self.selected_player_name=None
             self.selected_player_var.set("")
-            self.remove_btn.configure(state="disabled")
             if hasattr(self.controller, "refresh_stats"):
                 self.controller.refresh_stats()
             return
@@ -1160,7 +1231,6 @@ class SideBar(ttk.Frame):
         self.selected_player_button = btn 
         self.selected_player_name = btn.cget("text")
         self.selected_player_var.set(self.selected_player_name)
-        self.remove_btn.configure(state="normal")
 
         if hasattr(self.controller, "refresh_stats"):
             self.controller.refresh_stats()
@@ -1271,7 +1341,6 @@ class SideBar(ttk.Frame):
         self.controller.redo_stack.clear()                                      
     
         self.selected_player_button = None
-        self.remove_btn.configure(state="disabled")
         self.refresh_player_list()
         self.selected_player_var.set("")
         self.controller.refresh_stats()

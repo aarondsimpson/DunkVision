@@ -491,3 +491,75 @@ def manage_teams_modal(parent, *, team_names: list[str]) -> dict | None:
     win.deiconify()
     parent.wait_window(win)
     return result["val"]
+
+def manage_players_dialog(parent, *, players, title="Manage Players", initial=None):
+    win = tk.Toplevel(parent)
+    win.title(title)
+    win.transient(parent)
+    win.grab_set()
+    win.resizable(False, False)
+
+    frm = ttk.Frame(win, padding=10)
+    frm.grid(sticky="nsew")
+
+    ttk.Label(frm, text="Players").grid(row=0, column=0, sticky="w")
+    lb = tk.Listbox(frm, height=8, exportselection=False)
+    for p in players:
+        lb.insert("end", p)
+    lb.grid(row=1, column=0, sticky="nsew")
+
+    if initial and initial in players:
+        lb.selection_set(players.index(initial))
+
+    ttk.Label(frm, text="Name").grid(row=2, column=0, sticky="w", pady=(8,0))
+    name_var = tk.StringVar(value=initial or "")
+    ent = ttk.Entry(frm, textvariable=name_var, width=28)
+    ent.grid(row=3, column=0, sticky="ew")
+
+    def _sel_name():
+        try:
+            i = lb.curselection()
+            return lb.get(i[0]) if i else None
+        except Exception:
+            return None
+
+    def _on_select(_e=None):
+        sel = _sel_name()
+        if sel:
+            name_var.set(sel)
+    lb.bind("<<ListboxSelect>>", _on_select)
+
+    result = {"val": None}
+
+    def do_add():
+        nm = name_var.get().strip()
+        if not nm:
+            return
+        result["val"] = {"action": "add", "name": nm}
+        win.destroy()
+
+    def do_rename():
+        old = _sel_name()
+        new = name_var.get().strip()
+        if not old or not new or new == old:
+            return
+        result["val"] = {"action": "rename", "old": old, "new": new}
+        win.destroy()
+
+    def do_remove():
+        nm = _sel_name()
+        if not nm:
+            return
+        result["val"] = {"action": "remove", "name": nm}
+        win.destroy()
+        
+    btns = ttk.Frame(frm)
+    btns.grid(row=4, column=0, sticky="ew", pady=(10,0))
+    ttk.Button(btns, text="Add", width=10, command=do_add).grid(row=0, column=0, padx=4)
+    ttk.Button(btns, text="Rename", width=10, command=do_rename).grid(row=0, column=1, padx=4)
+    ttk.Button(btns, text="Delete", width=10, command=do_remove).grid(row=0, column=2, padx=4)
+    ttk.Button(btns, text="Cancel", width=10, command=win.destroy).grid(row=0, column=3, padx=4)
+
+    ent.focus_set()
+    parent.wait_window(win)
+    return result["val"]
