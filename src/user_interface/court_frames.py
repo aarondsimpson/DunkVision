@@ -43,13 +43,13 @@ def short_zone(label: str) -> str:
     repl = {
         "Left": "L",
         "Right": "R",
-        "Outside": "Out",
-        "Wing": "Wg",
-        "Corner": "Cor",
-        "Top of Key": "Top",
-        "High Post": "High",
-        "Low Post": "Low",
-        "Free Throw": "FT",
+        "Outside": "Outside",
+        "Wing": "Wing",
+        "Corner": "Corner",
+        "Top of Key": "Top of Key",
+        "High Post": "High Post",
+        "Low Post": "Low Post",
+        "Free Throw": "FT Line",
         "Above Break": "AB",
     }
     for k, v in repl.items():
