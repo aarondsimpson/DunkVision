@@ -14,6 +14,7 @@ from src.application_logic.zoning import resolve_zone
 from src.application_logic.zoning_configuration import shot_distance_from_hoop 
 from session_data import team_store as TS
 from src import config
+from session_data.game_io import write_game, read_game
 
 BAR_HEIGHT = 60
 SIDE_WIDTH = 300
@@ -353,7 +354,108 @@ class CourtFrame(ttk.Frame):
         self.set_status(f"Quarter: {q}")
                 
     def save_game(self):
-        self.set_status("Save game (stub).") #Requires build out when saving persistence format is built
+        # suggest a friendly default name
+        default = "game.dvg.json"
+        path = filedialog.asksaveasfilename(
+            defaultextension=".dvg.json",
+            filetypes=[("DunkVision Game (*.dvg.json)", "*.dvg.json"), ("JSON", "*.json")],
+            title="Save Game",
+            initialfile=default,
+        )
+        if not path:
+            return
+        try:
+            write_game(Path(path), self)
+            self.set_status(f"Saved: {path}")
+        except Exception as e:
+            messagebox.showerror("Save Failed", f"{e}")
+            self.set_status("Save failed.")
+
+    def load_game_dict(self, data: dict):
+        # clear current session
+        self.actions.clear()
+        self.redo_stack.clear()
+        self.data_points.clear()
+        for m in getattr(self, "_shot_markers", []):
+            try: self.center_canvas.canvas.delete(m["id"])
+            except Exception: pass
+        self._shot_markers.clear()
+
+        # restore basic UI state
+        ui = data.get("ui", {})
+        self.mode = ui.get("mode", self.mode)
+        self.quarter.set(ui.get("quarter", "Q1"))
+        try:
+            self.selected_team_key.set(ui.get("selected_team_key", "home"))
+        except Exception:
+            pass
+        scores = ui.get("scores", {})
+        self.home_score.set(int(scores.get("home", 0)))
+        self.away_score.set(int(scores.get("away", 0)))
+
+        # restore teams
+        t = data.get("teams", {})
+        self.team_order = list(t.get("order", ["home", "away"]))
+        names = t.get("names", {})
+        for k in ("home", "away"):
+            if k in self.team_names and k in names:
+                self.team_names[k].set(names[k])
+        rosters = t.get("rosters", {})
+        for k in ("home", "away"):
+            self.rosters[k] = list(rosters.get(k, self.rosters[k]))
+
+        # restore shots
+        self.data_points.extend(list(data.get("shots", [])))
+
+        # restore history (optional)
+        h = data.get("history", {})
+        self.actions = list(h.get("actions", []))
+        self.redo_stack = list(h.get("redo_stack", []))
+
+        # redraw canvas markers from points
+        for p in self.data_points:
+            ix, iy = p.get("x"), p.get("y")
+            made = bool(p.get("made"))
+            team = p.get("team", "home")
+            if None not in (ix, iy):
+                self._draw_marker(ix, iy, made=made, team=team)
+
+        # refresh all panels
+        self.update_mode()
+        self.sidebar.refresh_team_dropdown()
+        self.sidebar.refresh_player_list()
+        self.databar.refresh_from_points(self.data_points)
+        self.set_status("Game loaded.")
+
+    def apply_loaded_state(self, state: dict):
+        try:
+            self.game_date = state.get("game_date")
+            self.game_location = state.get("game_location")
+            self.mode = state.get("mode", "dark")
+            self.quarter.set(state.get("quarter", "Q1"))
+            self.actions = state.get("actions", [])
+            self.redo_stack = state.get("redo_stack", [])
+            self.data_points = state.get("data_points", [])
+            self.team_order = state.get("team_order", ["home", "away"])
+            for k, name in state.get("team_names", {}).items():
+                if k in self.team_names:
+                    self.team_names[k].set(name)
+            self.rosters = state.get("rosters", {"home": list(DEFAULT_ROSTER), "away": list(DEFAULT_ROSTER)})
+
+            # redraw markers
+            self._shot_markers.clear()
+            self.center_canvas.show(MODE[self.mode]["image"])
+            for p in self.data_points:
+                ix, iy = p.get("x"), p.get("y")
+                made, team = p.get("made"), p.get("team")
+                if ix is not None and iy is not None and team:
+                    self._draw_marker(ix, iy, made=made, team=team)
+
+            self.refresh_stats()
+            self.set_status("Session restored.")
+        except Exception as e:
+            self.set_status(f"Failed to restore: {e}")
+
 
     def reset_game(self):
         if not confirm("confirm_reset", self):

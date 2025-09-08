@@ -3,6 +3,8 @@ from tkinter import ttk, filedialog
 from PIL import Image, ImageTk, ImageColor
 from src.config import SCREEN_IMAGES_DIR
 from pathlib import Path
+from tkinter import filedialog, messagebox
+from session_data.game_io import read_game
 
 NATIVE_WIDTH = 1366
 NATIVE_HEIGHT = 768
@@ -243,13 +245,17 @@ class StartScreen(ttk.Frame):
 
     def load_session(self):
         path = filedialog.askopenfilename(
-            title = "Load a Dunk Vision Save",
-            filetypes = [("Dunk Vision Save", "*.dvjson"), ("All Files", "*.*")]
+            filetypes=[("DunkVision Game (*.dvg.json)", "*.dvg.json"), ("JSON", "*.json")],
+            title="Load Game",
         )
-        """if path: 
-            #CODE THIS LATER WHEN SAVE AND LOAD FUNCTIONS ARE BUILT
-            self.controller.show_frame("CourtFrames")
-            """
+        if not path:
+            return
+        try:
+            data = read_game(path)
+            self.show_court_screen()
+            self.center.load_game_dict(data)
+        except Exception as e:
+            messagebox.showerror("Load Failed", f"{e}")
 
 
 class CourtScreen(ttk.Frame):

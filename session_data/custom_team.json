@@ -2,19 +2,6 @@
   "schema": 1,
   "teams": [
     {
-      "team_id": "t_default_away",
-      "team_name": "Their Team",
-      "roster": [
-        "Point Guard",
-        "Shooting Guard",
-        "Small Forward",
-        "Power Forward",
-        "Center"
-      ],
-      "updated_at": "2025-09-07T16:23:11Z",
-      "version": 1
-    },
-    {
       "team_id": "t_default_home",
       "team_name": "My Team",
       "roster": [
@@ -26,6 +13,19 @@
       ],
       "updated_at": "2025-09-08T13:41:20Z",
       "version": 4
+    },
+    {
+      "team_id": "t_default_away",
+      "team_name": "Their Team",
+      "roster": [
+        "Point Guard",
+        "Shooting Guard",
+        "Small Forward",
+        "Power Forward",
+        "Center"
+      ],
+      "updated_at": "2025-09-08T20:34:29Z",
+      "version": 1
     }
   ]
 }
