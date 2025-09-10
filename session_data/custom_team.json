@@ -26,6 +26,19 @@
       ],
       "updated_at": "2025-09-08T20:34:29Z",
       "version": 1
+    },
+    {
+      "team_id": "t_c774b47d",
+      "team_name": "Patuxent High School",
+      "roster": [
+        "Point Guard",
+        "Shooting Guard",
+        "Small Forward",
+        "Power Forward",
+        "Center"
+      ],
+      "updated_at": "2025-09-10T01:45:30Z",
+      "version": 1
     }
   ]
 }

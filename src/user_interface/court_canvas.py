@@ -241,7 +241,7 @@ class StartScreen(ttk.Frame):
   
 
     def new_session(self):
-        self.controller.show_court_screen() 
+        self.controller.show_court_screen(ask_meta=True) 
 
     def load_session(self):
         path = filedialog.askopenfilename(
@@ -252,8 +252,14 @@ class StartScreen(ttk.Frame):
             return
         try:
             data = read_game(path)
-            self.show_court_screen()
-            self.center.load_game_dict(data)
+            self.controller.show_court_screen(ask_meta=False)
+
+            cf = self.controller.center
+            if hasattr(cf, "load_game_dict") and callable(cf.load_game_dict):
+                 cf.load_game_dict(data)
+            else: 
+                messagebox.showwarning("Loaded, but...", 
+                                       "Could not find CourtFrame.load_game_dict; game opened without data.")
         except Exception as e:
             messagebox.showerror("Load Failed", f"{e}")
 

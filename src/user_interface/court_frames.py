@@ -372,60 +372,129 @@ class CourtFrame(ttk.Frame):
             self.set_status("Save failed.")
 
     def load_game_dict(self, data: dict):
-        # clear current session
-        self.actions.clear()
-        self.redo_stack.clear()
-        self.data_points.clear()
-        for m in getattr(self, "_shot_markers", []):
-            try: self.center_canvas.canvas.delete(m["id"])
-            except Exception: pass
-        self._shot_markers.clear()
-
-        # restore basic UI state
         ui = data.get("ui", {})
         self.mode = ui.get("mode", self.mode)
         self.quarter.set(ui.get("quarter", "Q1"))
-        try:
+        try: 
             self.selected_team_key.set(ui.get("selected_team_key", "home"))
-        except Exception:
+        except Exception: 
             pass
         scores = ui.get("scores", {})
         self.home_score.set(int(scores.get("home", 0)))
         self.away_score.set(int(scores.get("away", 0)))
 
-        # restore teams
-        t = data.get("teams", {})
+        t = data.get("teams", {}) or {}
         self.team_order = list(t.get("order", ["home", "away"]))
-        names = t.get("names", {})
+        names = t.get("names", {}) or {}
         for k in ("home", "away"):
             if k in self.team_names and k in names:
                 self.team_names[k].set(names[k])
-        rosters = t.get("rosters", {})
+        rosters = t.get("rosters", {}) or {}
         for k in ("home", "away"):
             self.rosters[k] = list(rosters.get(k, self.rosters[k]))
 
-        # restore shots
-        self.data_points.extend(list(data.get("shots", [])))
+        self.data_points = list(data.get("shots", []) or [])
 
-        # restore history (optional)
-        h = data.get("history", {})
-        self.actions = list(h.get("actions", []))
-        self.redo_stack = list(h.get("redo_stack", []))
+        h = data.get("history", {}) or {}
+        has_history = bool(h)
+        self.actions = list(h.get("actions", [])) if has_history else []
+        self.redo_stack = list(h.get("redo_stack", [])) if has_history else []
+        
+        for m in getattr(self, "_shot_markers", []):
+            try: 
+                self.center_canvas.canvas.delete(m["id"])
+            except Exception: 
+                pass
+        self._shot_markers = []
 
-        # redraw canvas markers from points
-        for p in self.data_points:
+        self.center_canvas.show(MODE[self.mode]["image"])
+
+        marker_ids_by_index: list[int | None] = []
+        for idx, p in enumerate (self.data_points):
             ix, iy = p.get("x"), p.get("y")
             made = bool(p.get("made"))
             team = p.get("team", "home")
-            if None not in (ix, iy):
-                self._draw_marker(ix, iy, made=made, team=team)
+            if None not in (ix, iy) and team in ("home", "away"):
+                m = self._draw_marker(ix, iy, made=made, team=team)
+                marker_ids_by_index.append(m["id"] if m else None)
+            else: 
+                marker_ids_by_index.append(None)
 
-        # refresh all panels
+        if has_history: 
+            used = set()
+
+        def sig(p):
+            return (
+                p.get("x"), p.get("y"),
+                p.get("team"), bool(p.get("made")),
+                p.get("quarter"), p.get("player")
+            )
+        sigs = [sig(p) for p in self.data_points]
+
+        for a in self.actions:
+            if a.get("type") != "shot":
+                continue
+            pdata = a.get("data") or {}
+            s = sig(pdata)
+            # try exact index hint if present
+            idx_hint = a.get("data_index")
+            if isinstance(idx_hint, int) and 0 <= idx_hint < len(marker_ids_by_index) and idx_hint not in used:
+                a["marker_id"] = marker_ids_by_index[idx_hint]
+                a["marker_meta"] = {
+                    "ix": pdata.get("x"), "iy": pdata.get("y"),
+                    "made": bool(pdata.get("made")),
+                    "team": pdata.get("team", "home"),
+                }
+                used.add(idx_hint)
+                continue
+
+            # otherwise, find the first matching, unused point
+            match_idx = None
+            for i, sig_i in enumerate(sigs):
+                if i in used:
+                    continue
+                if sig_i == s:
+                    match_idx = i
+                    break
+
+            if match_idx is not None:
+                a["marker_id"] = marker_ids_by_index[match_idx]
+                a["marker_meta"] = {
+                    "ix": pdata.get("x"), "iy": pdata.get("y"),
+                    "made": bool(pdata.get("made")),
+                    "team": pdata.get("team", "home"),
+                }
+                used.add(match_idx)
+            else:
+                # no match; leave marker fields absent
+                pass
+
+        else:
+            # No saved history → synthesize minimal shot history so Undo works
+            for i, p in enumerate(self.data_points):
+                self.actions.append({
+                    "type": "shot",
+                    "data": p,
+                    "marker_id": marker_ids_by_index[i],
+                    "marker_meta": {
+                        "ix": p.get("x"), "iy": p.get("y"),
+                        "made": bool(p.get("made")),
+                        "team": p.get("team", "home"),
+                    },
+                    # helpful if you later persist history
+                    "data_index": i,
+                })
+            self.redo_stack = []
+
+        # ---- 7) Refresh UI ----
+        if hasattr(self.sidebar, "refresh_team_dropdown"):
+            self.sidebar.refresh_team_dropdown()
+        if hasattr(self.sidebar, "refresh_player_list"):
+            self.sidebar.refresh_player_list()
         self.update_mode()
-        self.sidebar.refresh_team_dropdown()
-        self.sidebar.refresh_player_list()
-        self.databar.refresh_from_points(self.data_points)
+        self.refresh_stats()
         self.set_status("Game loaded.")
+        
 
     def apply_loaded_state(self, state: dict):
         try:
@@ -813,7 +882,26 @@ class CourtFrame(ttk.Frame):
         m = {"id": cid, "ix": ix, "iy": iy, "made": made, "team": team, "shape": shape}
         self._shot_markers.append(m)
         return m 
-        
+
+    def _redraw_all_markers(self):
+        for m in getattr(self, "_shot_markers", []):
+            try: 
+                self.center_canvas.canvas.delete(m["id"])
+            except Exception:
+                pass
+        self._shot_markers = []
+
+        self.center_canvas.show(MODE[self.mode]["image"])
+
+        for p in self.data_points or []:
+            ix, iy = p.get("x"), p.get("y")
+            made = bool(p.get("made"))
+            team = p.get("team")
+            if ix is not None and iy is not None and team in ("home", "away"):
+                self._draw_marker(ix, iy, made=made, team=team)
+
+        self.center_canvas.canvas.tag_raise("shot_marker")
+        self.after_idle(self._reposition_markers)
 
     def get_selected_player(self) -> str | None:
         try:

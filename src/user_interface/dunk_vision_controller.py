@@ -102,20 +102,20 @@ class DunkVisionApp(tk.Tk):
         self.center.grid(row=1, column=1, sticky="nsew")
 
 
-    def show_court_screen(self):
+    def show_court_screen(self, *, ask_meta: bool = True):
         self.center.grid_forget()
         self.center=CourtFrame(self.root, controller=self)
         self.center.grid(row=1, column=1, sticky="nsew")
 
-        def _ask_details():
-            meta = game_metadata_dialog(self.center)
-            if meta: 
-                setattr(self.center, "game_date", meta["date"])
-                setattr(self.center, "game_location", meta["location"])
-                if hasattr(self.center, "set_status"):
-                    self.center.set_status(f"Game: {meta['date']} • {meta['location']}")
-        self.after_idle(_ask_details)    
-
+        if ask_meta:
+            def _ask_details():
+                meta = game_metadata_dialog(self.center)
+                if meta: 
+                    setattr(self.center, "game_date", meta["date"])
+                    setattr(self.center, "game_location", meta["location"])
+                    if hasattr(self.center, "set_status"):
+                        self.center.set_status(f"Game: {meta['date']} • {meta['location']}")
+            self.after_idle(_ask_details)    
 
     def init_styles(self):
         style=ttk.Style(self)
