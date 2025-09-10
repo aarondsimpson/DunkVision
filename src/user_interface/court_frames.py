@@ -379,7 +379,7 @@ class CourtFrame(ttk.Frame):
             self.selected_team_key.set(ui.get("selected_team_key", "home"))
         except Exception: 
             pass
-        scores = ui.get("scores", {})
+        scores = ui.get("scores", {}) or {}
         self.home_score.set(int(scores.get("home", 0)))
         self.away_score.set(int(scores.get("away", 0)))
 
@@ -397,8 +397,8 @@ class CourtFrame(ttk.Frame):
 
         h = data.get("history", {}) or {}
         has_history = bool(h)
-        self.actions = list(h.get("actions", [])) if has_history else []
-        self.redo_stack = list(h.get("redo_stack", [])) if has_history else []
+        self.actions = list(h.get("actions", []))
+        self.redo_stack = list(h.get("redo_stack", []))
         
         for m in getattr(self, "_shot_markers", []):
             try: 
@@ -407,94 +407,88 @@ class CourtFrame(ttk.Frame):
                 pass
         self._shot_markers = []
 
-        self.center_canvas.show(MODE[self.mode]["image"])
+        self.update_mode()
+        self.after_idle(self._redraw_all_markers)
+        self.after_idle(self._attach_marker_ids_to_history)
 
-        marker_ids_by_index: list[int | None] = []
-        for idx, p in enumerate (self.data_points):
-            ix, iy = p.get("x"), p.get("y")
-            made = bool(p.get("made"))
-            team = p.get("team", "home")
-            if None not in (ix, iy) and team in ("home", "away"):
-                m = self._draw_marker(ix, iy, made=made, team=team)
-                marker_ids_by_index.append(m["id"] if m else None)
-            else: 
-                marker_ids_by_index.append(None)
+        if hasattr(self.sidebar, "refresh_team_dropdown"):
+            self.sidebar.refresh_team_dropdown()
+        if hasattr(self.sidebar, "refresh_player_list"):
+            self.sidebar.refresh_player_list()
+        
+        self.refresh_stats()
+        self.set_status("Game loaded.")     
 
-        if has_history: 
-            used = set()
 
-        def sig(p):
-            return (
-                p.get("x"), p.get("y"),
-                p.get("team"), bool(p.get("made")),
-                p.get("quarter"), p.get("player")
-            )
-        sigs = [sig(p) for p in self.data_points]
+    def _attach_marker_ids_to_history(self):
+        if not self.data_points:
+            return 
+        
+        def sig_xymt(obj):
+            return (obj.get("x"), obj.get("y"),
+                    obj.get("team"), bool(obj.get("made")))
 
-        for a in self.actions:
-            if a.get("type") != "shot":
-                continue
-            pdata = a.get("data") or {}
-            s = sig(pdata)
-            # try exact index hint if present
-            idx_hint = a.get("data_index")
-            if isinstance(idx_hint, int) and 0 <= idx_hint < len(marker_ids_by_index) and idx_hint not in used:
-                a["marker_id"] = marker_ids_by_index[idx_hint]
-                a["marker_meta"] = {
-                    "ix": pdata.get("x"), "iy": pdata.get("y"),
-                    "made": bool(pdata.get("made")),
-                    "team": pdata.get("team", "home"),
-                }
-                used.add(idx_hint)
-                continue
+        markers_by_sig: dict[tuple, list[int]] = {}
+        for m in self._shot_markers:
+            markers_by_sig.setdefault(
+                (m.get("ix"), m.get("iy"), m.get("team"), bool(m.get("made"))), []
+            ).append(m.get("id"))
 
-            # otherwise, find the first matching, unused point
-            match_idx = None
-            for i, sig_i in enumerate(sigs):
-                if i in used:
-                    continue
-                if sig_i == s:
-                    match_idx = i
-                    break
+        assigned = [None] * len(self.data_points)
+        for i, p in enumerate(self.data_points):
+            s = sig_xymt(p)
+            bucket = markers_by_sig.get(s, [])
+            assigned[i] = bucket.pop(0) if bucket else None
 
-            if match_idx is not None:
-                a["marker_id"] = marker_ids_by_index[match_idx]
-                a["marker_meta"] = {
-                    "ix": pdata.get("x"), "iy": pdata.get("y"),
-                    "made": bool(pdata.get("made")),
-                    "team": pdata.get("team", "home"),
-                }
-                used.add(match_idx)
-            else:
-                # no match; leave marker fields absent
-                pass
-
-        else:
-            # No saved history → synthesize minimal shot history so Undo works
+        if not self.actions:
+            self.actions = []
             for i, p in enumerate(self.data_points):
                 self.actions.append({
                     "type": "shot",
                     "data": p,
-                    "marker_id": marker_ids_by_index[i],
+                    "marker_id": assigned[i],
                     "marker_meta": {
                         "ix": p.get("x"), "iy": p.get("y"),
                         "made": bool(p.get("made")),
                         "team": p.get("team", "home"),
                     },
-                    # helpful if you later persist history
                     "data_index": i,
                 })
-            self.redo_stack = []
+            self.redo_stack.clear()
+            return
 
-        # ---- 7) Refresh UI ----
-        if hasattr(self.sidebar, "refresh_team_dropdown"):
-            self.sidebar.refresh_team_dropdown()
-        if hasattr(self.sidebar, "refresh_player_list"):
-            self.sidebar.refresh_player_list()
-        self.update_mode()
-        self.refresh_stats()
-        self.set_status("Game loaded.")
-        
+        used: set[int] = set()
+        point_sigs = [sig_xymt(p) for p in self.data_points]
+            
+        for a in self.actions:
+            if a.get("type") != "shot":
+                continue
+            pdata = a.get("data") or {}
+
+            idx = a.get("data_index")
+            if isinstance(idx, int) and 0 <= idx < len(assigned) and idx not in used:
+                a["marker_id"] = assigned[idx]
+                a["marker_meta"] = {
+                    "ix": pdata.get("x"), "iy": pdata.get("y"),
+                    "made": bool(pdata.get("made")),
+                    "team": pdata.get("team", "home"),
+                }
+                used.add(idx)
+                continue
+            
+            s = sig_xymt(pdata)
+            for i, ps in enumerate(point_sigs):
+                if i in used:
+                    continue
+                if ps == s:
+                    a["marker_id"] = assigned[i]
+                    a["marker_meta"] = {
+                        "ix": pdata.get("x"), "iy": pdata.get("y"),
+                        "made": bool(pdata.get("made")),
+                        "team": pdata.get("team", "home"),
+                    }
+                    used.add(i)
+                    break
 
     def apply_loaded_state(self, state: dict):
         try:
@@ -883,7 +877,14 @@ class CourtFrame(ttk.Frame):
         self._shot_markers.append(m)
         return m 
 
+        print("DRAW", ix, iy, "pos?", self.center_canvas.image_to_canvas(ix, iy))
+
+
     def _redraw_all_markers(self):
+        if getattr(self.center_canvas, "_draw_info", None) is None:
+            self.after_idle(self._redraw_all_markers)
+            return
+        
         for m in getattr(self, "_shot_markers", []):
             try: 
                 self.center_canvas.canvas.delete(m["id"])
