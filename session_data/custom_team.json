@@ -11,8 +11,8 @@
         "Power Forward",
         "Center"
       ],
-      "updated_at": "2025-09-08T13:41:20Z",
-      "version": 4
+      "updated_at": "2025-09-12T02:06:38Z",
+      "version": 1
     },
     {
       "team_id": "t_default_away",
@@ -24,7 +24,7 @@
         "Power Forward",
         "Center"
       ],
-      "updated_at": "2025-09-08T20:34:29Z",
+      "updated_at": "2025-09-12T02:07:01Z",
       "version": 1
     }
   ]

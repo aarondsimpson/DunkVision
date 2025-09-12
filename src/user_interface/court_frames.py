@@ -2,6 +2,8 @@ import json
 import csv
 import tkinter as tk
 import os 
+import uuid
+from datetime import datetime
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 from pathlib import Path
@@ -37,6 +39,9 @@ MODE = {
         "list": "#41597F",
     }}
 
+SCHEMA_VERSION = "dv_shots_v1"
+MAKE_TOKENS = {"make", "and1_make"}
+
 def short_zone(label: str) -> str:
     if not label: 
         return "-"
@@ -56,6 +61,24 @@ def short_zone(label: str) -> str:
     for k, v in repl.items():
         base = base.replace(k, v)
     return base + (f" - {suffix}" if sep else "")
+
+def _points_from_zone(result: str, zone_name: str) -> int:
+    """Infer points using only result + zone label (e.g., 'Right Slot - 3', 'Free Throw Line - 1')."""
+    if str(result).strip().lower() not in MAKE_TOKENS:
+        return 0
+    z = str(zone_name or "").strip().lower()
+    if "free throw line" in z:
+        return 1
+    if z.endswith("- 3"):
+        return 3
+    return 2
+
+def _truthy(x) -> bool:
+    if isinstance(x, bool):
+        return x
+    if x is None:
+        return False
+    return str(x).strip().lower() in {"true", "1", "yes", "y"}
 
 class CourtFrame(ttk.Frame):
     def __init__(self, parent, controller=None):
@@ -84,6 +107,14 @@ class CourtFrame(ttk.Frame):
 
         self.home_score = tk.IntVar(value=0)
         self.away_score = tk.IntVar(value=0)
+
+        self._player_ids = {}
+
+        self.player_roles = {"home": {}, "away": {}}
+        for side in ("home", "away"):
+            for name in self.rosters[side]:
+                if name in DEFAULT_ROSTER:
+                    self.player_roles[side][name] = name
 
         #Layout Scaffold
         self.grid_rowconfigure(1, weight=1)
@@ -561,7 +592,6 @@ class CourtFrame(ttk.Frame):
             title, msg = resolve("export_fail", path=p)
             messagebox.showerror(title, msg)
 
-    
     def export_json(self):
         path = filedialog.asksaveasfilename(
             defaultextension=".json",
@@ -582,18 +612,180 @@ class CourtFrame(ttk.Frame):
         )
         if not path:
             return
-        rows = self.data_points
-        if not rows: 
-            with open(path, "w", newline="", encoding="utf-8") as f:
-                f.write("")
-            self.set_status(f"CSV Exported (Empty): {path}")
-            return
-        fieldnames = sorted({k for row in rows for k in row.keys()})
-        with open(path, "w", newline="",encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
-        self.set_status(f"CSV Exported: {path}")
+
+        shots = list(getattr(self, "data_points", []) or [])
+
+        export_timestamp = datetime.now().isoformat(timespec="seconds")
+        game_date        = getattr(self, "game_date", "") or getattr(self, "session_date", "")
+        game_location    = getattr(self, "game_location", "")
+        team_name        = getattr(self, "team_name", "") or getattr(self, "my_team_name", "")
+        opponent_name    = getattr(self, "opponent_team_name", "") or getattr(self, "their_team_name", "")
+        game_id          = getattr(self, "game_id", "") or str(uuid.uuid4())           
+        
+        cols = [
+            "schema_version","export_timestamp","game_date","game_location","game_id","shot_id",
+            "team_side","team_name","opponent_team_name","period",
+            "player_id","player_name","player_role",
+            "shot_result","shot_points","made_bool",
+            "shot_context","miss_context","free_throw_bool","free_throw_type",
+            "zone_name","distance_ft","x_court","y_court",
+        ]         
+
+        out_rows = []
+        for s in shots:
+            zone_name   = s.get("zone") or s.get("zone_name") or "" 
+            shot_result = (s.get("result") or s.get("shot_result") or "").strip().lower()
+            if not shot_result:
+                if s.get("made"):
+                    shot_result = "and1_make" if s.get("and1") else "make"
+                else:
+                    # keep "miss" even if airball; miss_context captures details
+                    shot_result = "miss"
+
+            # points & made
+            shot_points = s.get("shot_points")
+            if shot_points is None or shot_points == "":
+                shot_points = _points_from_zone(shot_result, zone_name)
+            try:
+                shot_points = int(shot_points)
+            except Exception:
+                shot_points = 0
+            made_bool = shot_points > 0 
+
+            raw_team = (s.get("team") or s.get("team_side") or "").strip().lower()
+            if raw_team in ("home", "my"):
+                team_side = "my"
+            elif raw_team in ("away", "their"):
+                team_side = "their"
+            else:
+                team_side = ""
+
+            home_label = self.team_names["home"].get()
+            away_label = self.team_names["away"].get()
+
+            if team_side == "my":
+                row_team_name = home_label
+                row_opp_name  = away_label
+            elif team_side == "their":
+                row_team_name = away_label
+                row_opp_name  = home_label
+            else:
+                row_team_name = team_name or s.get("team_name", "")
+                row_opp_name  = opponent_name or s.get("opponent_team_name", "")
+
+
+            # period from your "quarter" ('Q1'...'Q4')
+            period = s.get("period")
+            if not period:
+                q = str(s.get("quarter", "")).upper().lstrip()
+                period = q or ""
+
+            if s.get("player") and not s.get("player_id"):
+                key = (s.get("team"), s.get("player"))
+                s["player_id"] = self._player_ids.setdefault(key, str(uuid.uuid4()))
+
+            # player fields: you store name under "player"
+            player_id = s.get("player_id") or s.get("shooter_id") or ""
+            player_name = s.get("player_name") or s.get("shooter_name") or s.get("player") or ""
+            player_role = s.get("player_role") or s.get("role") or self.player_roles.get(s.get("team") or "", {}).get(player_name,"")
+
+            
+            # contexts
+            shot_context = s.get("shot_context") or s.get("made_context") or ""
+            miss_context = s.get("miss_context") or ("Airball" if s.get("airball") else "")
+
+            ft_bool = s.get("free_throw_bool")
+            if ft_bool is None:
+                ft_bool = "free throw line" in str(zone_name).strip().lower()
+            else:
+                ft_bool = _truthy(ft_bool)
+            
+            if ft_bool:
+                ft_type = s.get("free_throw_type") or s.get("ft_reason") or "Free Throw"
+            else:
+                ft_type = "zero"
+
+            if ft_bool: 
+                if made_bool and not shot_context:
+                    shot_context = "Free Throw"
+                elif not made_bool and not miss_context:
+                    miss_context = "Free Throw"
+
+            distance_ft = s.get("distance_ft")
+            if distance_ft in (None, ""):
+                distance_ft = s.get("r_ft", "")
+            try:
+                distance_ft = float(distance_ft) if distance_ft not in (None, "") else ""
+            except Exception:
+                distance_ft = ""
+
+            def _num(x):
+                try:
+                    return float(x)
+                except Exception:
+                    return ""
+            
+            x_court = s.get("x_court")
+            if x_court in (None, ""):
+               x_court = s.get("x")
+            x_court = _num(x_court) if x_court not in (None, "") else ""
+            
+            y_court = s.get("y_court")
+            if y_court in (None, ""):
+                y_court = s.get("y")
+            y_court = _num(y_court) if y_court not in (None, "") else ""
+
+            out = {
+                "schema_version":      SCHEMA_VERSION,
+                "export_timestamp":    export_timestamp,
+                "game_date":           game_date,
+                "game_location":       game_location,
+                "game_id":             game_id,
+                "shot_id":             s.get("shot_id") or str(uuid.uuid4()),
+
+                "team_side":           team_side,
+                "team_name":           row_team_name,
+                "opponent_team_name":  row_opp_name,
+                "period":              period, 
+
+                "player_id":           player_id,
+                "player_name":         player_name,
+                "player_role":         player_role,
+
+                "shot_result":         shot_result,
+                "shot_points":         shot_points,
+                "made_bool":           "TRUE" if made_bool else "FALSE",
+
+                "shot_context":        shot_context,
+                "miss_context":        miss_context,
+                "free_throw_bool":     "TRUE" if ft_bool else "FALSE",
+                "free_throw_type":     ft_type if ft_bool else "zero",
+
+                "zone_name":           zone_name,
+                "distance_ft":         distance_ft,
+                "x_court":             x_court,
+                "y_court":             y_court,
+            }
+            out_rows.append({k: out.get(k, "") for k in cols})
+
+        with open(path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
+                writer.writeheader()
+                if out_rows:
+                    writer.writerows(out_rows)
+
+        # 7) Optional: remember the game_id so it stays stable across future exports this session
+        if not getattr(self, "game_id", None):
+            try:
+                self.game_id = game_id
+            except Exception:
+                pass
+
+        # 8) Status message
+        try:
+            self.set_status(f'CSV Exported: {path}')
+        except Exception:
+            print(f'CSV Exported: {path}')
 
     def set_status(self, text: str):
         if hasattr(self.statusbar, "set_status"):
@@ -716,6 +908,10 @@ class CourtFrame(ttk.Frame):
         }
         if meta: point.update(meta)
 
+        pn = (meta or {}).get("player")
+        pid = self._player_ids.setdefault((team, pn), str(uuid.uuid4()))
+        point["player_id"] = pid
+
         self.data_points.append(point)
         self.actions.append({"type": "shot", "data": point})
         self.redo_stack.clear()
@@ -772,6 +968,10 @@ class CourtFrame(ttk.Frame):
             ft_reason = free_throw_reason_dialog(parent = self)
             if ft_reason is None:
                 return
+            if made: 
+                made_context = "Free Throw"
+            else: 
+                missed_context = "Free Throw"
         else: 
             if is_dunk_zone: 
                 shot_kind = dunk_or_layup_dialog(parent = self)
@@ -791,7 +991,7 @@ class CourtFrame(ttk.Frame):
                 missed_context = choose_one_dialog(
                     parent = self,
                     title="Missed Shot Context",
-                    prompt="Missed — choose one:",
+                    prompt="Missed — Choose One:",
                     options=["Airball", "Rebounded"],
             )
                 if missed_context is None:
@@ -876,9 +1076,6 @@ class CourtFrame(ttk.Frame):
         m = {"id": cid, "ix": ix, "iy": iy, "made": made, "team": team, "shape": shape}
         self._shot_markers.append(m)
         return m 
-
-        print("DRAW", ix, iy, "pos?", self.center_canvas.image_to_canvas(ix, iy))
-
 
     def _redraw_all_markers(self):
         if getattr(self.center_canvas, "_draw_info", None) is None:
@@ -1147,6 +1344,10 @@ class SideBar(ttk.Frame):
         # Update roster list
         idx = roster.index(old)
         roster[idx] = new
+
+        roles = self.controller.player_roles.get(key, {})
+        if old in roles and new not in roles: 
+            roles[new] = roles.pop(old)
 
         # Update any shots referencing this player for this team
         for p in self.controller.data_points:
@@ -1438,13 +1639,14 @@ class SideBar(ttk.Frame):
         )
         if not res:
             return
-        
+
         team_key = res["team_key"]
         player_name = res["name"]
         position = res["position"]
 
         self.controller.rosters[team_key].append(player_name)
         index_added = self.controller.rosters[team_key].index(player_name)
+        self.controller.player_roles[team_key][player_name] = position or ""
 
         self.controller.actions.append({                                           
             "type": "add_player",                                                  
@@ -1531,10 +1733,16 @@ class SideBar(ttk.Frame):
         })                                                        
         self.controller.redo_stack.clear()                                      
     
+        try: 
+            self.controller.player_roles[key].pop(name, None)
+        except Exception:
+            pass
+
         self.selected_player_button = None
         self.refresh_player_list()
         self.selected_player_var.set("")
         self.controller.refresh_stats()
+    
 
         try: 
             tname = self.controller.team_names[key].get()
@@ -1607,7 +1815,7 @@ class DataBar(ttk.Frame):
         box.grid(row=row, column=0, sticky="nsew", padx=8, pady=(0,8))
         box.grid_columnconfigure(1, weight=1)
 
-        vars = { #Add more as development continues
+        vars = { 
             "shots": tk.IntVar(value=0),
             "made": tk.IntVar(value=0),
             "missed": tk.IntVar(value=0),
@@ -1628,7 +1836,7 @@ class DataBar(ttk.Frame):
         ttk.Label(box, text="Accuracy:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["accuracy_fg"]).grid(row=r, column=1, sticky="e"); r+=1
         ttk.Label(box, text="Average Made Distance:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["avg_made_ft"]).grid(row=r, column=1, sticky="e"); r+=1
         ttk.Label(box, text="Average Missed Distance:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["avg_missed_ft"]).grid(row=r, column=1, sticky="e"); r+=1
-        ttk.Label(box, text="Dominant Zone").grid(row=r, column=0, sticky="w");ttk.Label(box, textvariable=vars["dom_zone"]).grid(row=r, column=1, sticky="e"); r+=1
+        ttk.Label(box, text="Dominant Zone:").grid(row=r, column=0, sticky="w");ttk.Label(box, textvariable=vars["dom_zone"]).grid(row=r, column=1, sticky="e"); r+=1
         ttk.Label(box, text="Weak Zone:").grid(row=r, column=0, sticky="w"); ttk.Label(box, textvariable=vars["weak_zone"]).grid(row=r, column=1, sticky="e"); r += 1 
 
 
