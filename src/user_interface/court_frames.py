@@ -131,8 +131,7 @@ class CourtFrame(ttk.Frame):
             on_redo_action=self.redo_action,
             on_select_quarter=self.select_quarter,
             on_save_game=self.save_game,
-            on_reset_game=self.reset_game,
-            on_end_game=self.end_game, 
+            on_reset_game=self.reset_game, 
             on_export_image=self.export_image,
             on_export_csv=self.export_csv,
             on_export_json=self.export_json,
@@ -156,10 +155,6 @@ class CourtFrame(ttk.Frame):
         c.bind("<Button-1>", self._on_canvas_click, add="+")     
         c.bind("<Configure>", lambda e: self.after_idle(self._reposition_markers), add="+")
 
-        from src.application_logic.zoning_configuration import MASK
-        print("COURT_ART source size:", self.center_canvas.images["court_dark"].size)
-        print("MASK size:", MASK.img.size)
-        
         self.databar = DataBar(self, controller=self)
         self.databar.grid(row=1, column=2, sticky="ns")
 
@@ -567,9 +562,160 @@ class CourtFrame(ttk.Frame):
             except Exception:
                 pass
         self._shot_markers.clear()
-                   
-    def end_game(self):
-        self.set_status("End game (stub).") #Build confirmation dialog
+
+
+    def _normalize_shot_for_export(self, s: dict, *, export_timestamp: str, game_id: str) -> dict:
+        zone_name = s.get("zone") or s.get("zone_name") or "" 
+       
+        shot_result = (s.get("result") or s.get("shot_result") or "").strip().lower()
+        if not shot_result: 
+            if s.get("made"):
+                shot_result = "and1_make" if s.get("and1") else "make"
+            else: 
+                shot_result = "miss" 
+
+        shot_points = s.get("shot_points")
+        if shot_points in (None, ""):
+            shot_points = _points_from_zone(shot_result, zone_name)
+        try:
+            shot_points = int(shot_points)
+        except Exception:
+            shot_points = 0
+        made_bool = bool(shot_points > 0)
+
+        raw_team = (s.get("team") or s.get("team_side") or "").strip().lower()
+        if raw_team in ("home", "my"):
+            team_side = "my"
+        elif raw_team in ("away", "their"):
+            team_side = "their"
+        else:
+            team_side = ""
+
+        home_label = self.team_names["home"].get()
+        away_label = self.team_names["away"].get()
+        if team_side == "my":
+            row_team_name = home_label
+            row_opp_name  = away_label
+        elif team_side == "their":
+            row_team_name = away_label
+            row_opp_name  = home_label
+        else:
+            row_team_name = getattr(self, "team_name", "") or s.get("team_name", "")
+            row_opp_name  = getattr(self, "opponent_team_name", "") or s.get("opponent_team_name", "")
+
+        period = s.get("period")
+        if not period:
+            q = str(s.get("quarter", "")).upper().lstrip()
+            period = q or ""
+
+        if s.get("player") and not s.get("player_id"):
+            key = (s.get("team"), s.get("player"))
+            s["player_id"] = self._player_ids.setdefault(key, str(uuid.uuid4()))
+
+        player_id   = s.get("player_id")   or s.get("shooter_id")   or ""
+        player_name = s.get("player_name") or s.get("shooter_name") or s.get("player") or ""
+        player_role = (
+            s.get("player_role") or s.get("role") or
+            self.player_roles.get(s.get("team") or "", {}).get(player_name, "")
+        )        
+
+        shot_context = s.get("shot_context") or s.get("made_context") or ""
+        miss_context = s.get("miss_context") or ("Airball" if s.get("airball") else "")
+
+        ft_bool = s.get("free_throw_bool")
+        if ft_bool is None:
+            ft_bool = "free throw line" in str(zone_name).strip().lower()
+        else:
+            ft_bool = _truthy(ft_bool)
+
+        if ft_bool:
+            # prefer explicit reason/type; default to "Free Throw"
+            ft_type = str(s.get("free_throw_type") or s.get("ft_reason") or "Free Throw") if ft_bool else "zero"
+            # backfill context
+            if made_bool and not shot_context:
+                shot_context = "Free Throw"
+            elif not made_bool and not miss_context:
+                miss_context = "Free Throw"
+        else:
+            ft_type = "zero"
+
+
+        raw_shot_type = (s.get("shot_type") or "").strip()
+
+        if ft_bool:
+            shot_type = "Free Throw"
+        elif raw_shot_type:
+            # Honor any explicit choice from the UI (e.g., "Dunk", "Layup")
+            shot_type = raw_shot_type
+        else:
+            # Fallbacks from zone; keep it lightweight & robust
+            zlow = str(zone_name).strip().lower()
+            if "dunk" in zlow:
+                shot_type = "Dunk"
+            elif "layup" in zlow:
+                shot_type = "Layup"
+            else:
+                shot_type = "Field Goal"
+
+        # one more pass to prefer any existing meta
+        shot_type = (s.get("shot_type") or shot_type or "Field Goal")
+
+        distance_ft = s.get("distance_ft")
+        if distance_ft in (None, ""):
+            distance_ft = s.get("r_ft", "")
+        try:
+            distance_ft = float(distance_ft) if distance_ft not in (None, "") else None
+        except Exception:
+            distance_ft = None
+
+
+        def _num(x):
+            try:
+                return float(x)
+            except Exception:
+                return None
+            
+        x_court = s.get("x_court")
+        if x_court in (None, ""):
+            x_court = s.get("x")
+        x_court = _num(x_court) if x_court not in (None, "") else None
+
+        y_court = s.get("y_court")
+        if y_court in (None, ""):
+            y_court = s.get("y")
+        y_court = _num(y_court) if y_court not in (None, "") else None 
+
+
+        return {
+            "schema_version":   SCHEMA_VERSION,
+            "export_timestamp": export_timestamp,
+            "game_id":          game_id,
+            "shot_id":          s.get("shot_id") or str(uuid.uuid4()),
+
+            "team_side":        team_side,
+            "team_name":        row_team_name,
+            "opponent_team_name": row_opp_name,
+            "period":           period,
+
+            "player_id":        player_id,
+            "player_name":      player_name,
+            "player_role":      player_role,
+
+            "shot_result":      shot_result,
+            "shot_points":      shot_points,
+            "made_bool":        bool(made_bool),
+            "shot_type":        shot_type,
+
+            "shot_context":     shot_context,
+            "miss_context":     miss_context,
+            "free_throw_bool":  bool(ft_bool),
+            "free_throw_type":  ft_type,
+
+            "zone_name":        zone_name,
+            "distance_ft":      distance_ft,
+            "x_court":          x_court,
+            "y_court":          y_court,
+    }
 
     def export_image(self):
         path = filedialog.asksaveasfilename(
@@ -599,10 +745,75 @@ class CourtFrame(ttk.Frame):
             title="Export Data (JSON)",
         )
         if not path:
-            return 
+            return
+
+        shots = list(getattr(self, "data_points", []) or [])
+
+        export_timestamp = datetime.now().isoformat(timespec="seconds")
+        game_date        = getattr(self, "game_date", "") or getattr(self, "session_date", "")
+        game_location    = getattr(self, "game_location", "")
+        game_id          = getattr(self, "game_id", "") or str(uuid.uuid4())
+
+        # Normalize every shot (includes FT context backfill + FT type default)
+        normalized_shots = [
+            self._normalize_shot_for_export(s, export_timestamp=export_timestamp, game_id=game_id)
+            for s in shots
+        ]
+
+        payload = {
+            "schema_version": SCHEMA_VERSION,
+            "export_timestamp": export_timestamp,
+
+            # Game meta
+            "game": {
+                "game_id": game_id,
+                "game_date": game_date,
+                "game_location": game_location,
+            },
+
+            # Teams meta (labels + current rosters)
+            "teams": {
+                "order": list(self.team_order),
+                "names": {
+                    "home": self.team_names["home"].get(),
+                    "away": self.team_names["away"].get(),
+                },
+                "rosters": {
+                    "home": list(self.rosters.get("home", [])),
+                    "away": list(self.rosters.get("away", [])),
+                },
+            },
+
+            # UI / session state that’s useful when re-importing
+            "ui": {
+                "mode": self.mode,
+                "quarter": self.quarter.get(),
+                "selected_team_key": self.selected_team_key.get(),
+                "scores": {
+                    "home": int(self.home_score.get() if self.home_score else 0),
+                    "away": int(self.away_score.get() if self.away_score else 0),
+                },
+            },
+
+            # The normalized, typed shots
+            "shots": normalized_shots,
+        }
+
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(self.data_points, f, ensure_ascii=False, indent=2)
-        self.set_status(f"JSON Exported: {path}")
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+
+        # keep a stable game_id during the session
+        if not getattr(self, "game_id", None):
+            try:
+                self.game_id = game_id
+            except Exception:
+                pass
+
+        try:
+            self.set_status(f"JSON Exported: {path}")
+        except Exception:
+            print(f"JSON Exported: {path}")
+
 
     def export_csv(self):
         path = filedialog.asksaveasfilename(
@@ -622,171 +833,67 @@ class CourtFrame(ttk.Frame):
         opponent_name    = getattr(self, "opponent_team_name", "") or getattr(self, "their_team_name", "")
         game_id          = getattr(self, "game_id", "") or str(uuid.uuid4())           
         
+        normalized_shots = [
+            self._normalize_shot_for_export(s, export_timestamp=export_timestamp, game_id=game_id)
+            for s in shots
+        ]
+
         cols = [
             "schema_version","export_timestamp","game_date","game_location","game_id","shot_id",
             "team_side","team_name","opponent_team_name","period",
             "player_id","player_name","player_role",
-            "shot_result","shot_points","made_bool",
+            "shot_result","shot_points","made_bool", "shot_type",
             "shot_context","miss_context","free_throw_bool","free_throw_type",
             "zone_name","distance_ft","x_court","y_court",
         ]         
 
         out_rows = []
-        for s in shots:
-            zone_name   = s.get("zone") or s.get("zone_name") or "" 
-            shot_result = (s.get("result") or s.get("shot_result") or "").strip().lower()
-            if not shot_result:
-                if s.get("made"):
-                    shot_result = "and1_make" if s.get("and1") else "make"
-                else:
-                    # keep "miss" even if airball; miss_context captures details
-                    shot_result = "miss"
-
-            # points & made
-            shot_points = s.get("shot_points")
-            if shot_points is None or shot_points == "":
-                shot_points = _points_from_zone(shot_result, zone_name)
-            try:
-                shot_points = int(shot_points)
-            except Exception:
-                shot_points = 0
-            made_bool = shot_points > 0 
-
-            raw_team = (s.get("team") or s.get("team_side") or "").strip().lower()
-            if raw_team in ("home", "my"):
-                team_side = "my"
-            elif raw_team in ("away", "their"):
-                team_side = "their"
-            else:
-                team_side = ""
-
-            home_label = self.team_names["home"].get()
-            away_label = self.team_names["away"].get()
-
-            if team_side == "my":
-                row_team_name = home_label
-                row_opp_name  = away_label
-            elif team_side == "their":
-                row_team_name = away_label
-                row_opp_name  = home_label
-            else:
-                row_team_name = team_name or s.get("team_name", "")
-                row_opp_name  = opponent_name or s.get("opponent_team_name", "")
-
-
-            # period from your "quarter" ('Q1'...'Q4')
-            period = s.get("period")
-            if not period:
-                q = str(s.get("quarter", "")).upper().lstrip()
-                period = q or ""
-
-            if s.get("player") and not s.get("player_id"):
-                key = (s.get("team"), s.get("player"))
-                s["player_id"] = self._player_ids.setdefault(key, str(uuid.uuid4()))
-
-            # player fields: you store name under "player"
-            player_id = s.get("player_id") or s.get("shooter_id") or ""
-            player_name = s.get("player_name") or s.get("shooter_name") or s.get("player") or ""
-            player_role = s.get("player_role") or s.get("role") or self.player_roles.get(s.get("team") or "", {}).get(player_name,"")
-
-            
-            # contexts
-            shot_context = s.get("shot_context") or s.get("made_context") or ""
-            miss_context = s.get("miss_context") or ("Airball" if s.get("airball") else "")
-
-            ft_bool = s.get("free_throw_bool")
-            if ft_bool is None:
-                ft_bool = "free throw line" in str(zone_name).strip().lower()
-            else:
-                ft_bool = _truthy(ft_bool)
-            
-            if ft_bool:
-                ft_type = s.get("free_throw_type") or s.get("ft_reason") or "Free Throw"
-            else:
-                ft_type = "zero"
-
-            if ft_bool: 
-                if made_bool and not shot_context:
-                    shot_context = "Free Throw"
-                elif not made_bool and not miss_context:
-                    miss_context = "Free Throw"
-
-            distance_ft = s.get("distance_ft")
-            if distance_ft in (None, ""):
-                distance_ft = s.get("r_ft", "")
-            try:
-                distance_ft = float(distance_ft) if distance_ft not in (None, "") else ""
-            except Exception:
-                distance_ft = ""
-
-            def _num(x):
-                try:
-                    return float(x)
-                except Exception:
-                    return ""
-            
-            x_court = s.get("x_court")
-            if x_court in (None, ""):
-               x_court = s.get("x")
-            x_court = _num(x_court) if x_court not in (None, "") else ""
-            
-            y_court = s.get("y_court")
-            if y_court in (None, ""):
-                y_court = s.get("y")
-            y_court = _num(y_court) if y_court not in (None, "") else ""
-
+        for n in normalized_shots:
             out = {
-                "schema_version":      SCHEMA_VERSION,
-                "export_timestamp":    export_timestamp,
-                "game_date":           game_date,
-                "game_location":       game_location,
-                "game_id":             game_id,
-                "shot_id":             s.get("shot_id") or str(uuid.uuid4()),
-
-                "team_side":           team_side,
-                "team_name":           row_team_name,
-                "opponent_team_name":  row_opp_name,
-                "period":              period, 
-
-                "player_id":           player_id,
-                "player_name":         player_name,
-                "player_role":         player_role,
-
-                "shot_result":         shot_result,
-                "shot_points":         shot_points,
-                "made_bool":           "TRUE" if made_bool else "FALSE",
-
-                "shot_context":        shot_context,
-                "miss_context":        miss_context,
-                "free_throw_bool":     "TRUE" if ft_bool else "FALSE",
-                "free_throw_type":     ft_type if ft_bool else "zero",
-
-                "zone_name":           zone_name,
-                "distance_ft":         distance_ft,
-                "x_court":             x_court,
-                "y_court":             y_court,
+                # file-level meta
+                "schema_version":   SCHEMA_VERSION,
+                "export_timestamp": export_timestamp,
+                "game_date":        game_date,
+                "game_location":    game_location,
+                # shot-level (already normalized)
+                "game_id":          n["game_id"],
+                "shot_id":          n["shot_id"],
+                "team_side":        n["team_side"],
+                "team_name":        n["team_name"],
+                "opponent_team_name": n["opponent_team_name"],
+                "period":           n["period"],
+                "player_id":        n["player_id"],
+                "player_name":      n["player_name"],
+                "player_role":      n["player_role"],
+                "shot_result":      n["shot_result"],
+                "shot_points":      n["shot_points"],
+                "made_bool":        "TRUE" if n["made_bool"] else "FALSE",
+                "shot_type":        n["shot_type"],
+                "shot_context":     n["shot_context"],
+                "miss_context":     n["miss_context"],
+                "free_throw_bool":  "TRUE" if n["free_throw_bool"] else "FALSE",
+                "free_throw_type":  n["free_throw_type"],
+                "zone_name":        n["zone_name"],
+                "distance_ft":      "" if n["distance_ft"] is None else n["distance_ft"],
+                "x_court":          "" if n["x_court"] is None else n["x_court"],
+                "y_court":          "" if n["y_court"] is None else n["y_court"],
             }
             out_rows.append({k: out.get(k, "") for k in cols})
 
         with open(path, "w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
-                writer.writeheader()
-                if out_rows:
-                    writer.writerows(out_rows)
+            writer = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
+            writer.writeheader()
+            if out_rows:
+                writer.writerows(out_rows)
 
-        # 7) Optional: remember the game_id so it stays stable across future exports this session
         if not getattr(self, "game_id", None):
-            try:
-                self.game_id = game_id
-            except Exception:
-                pass
-
-        # 8) Status message
-        try:
-            self.set_status(f'CSV Exported: {path}')
-        except Exception:
-            print(f'CSV Exported: {path}')
-
+            try: self.game_id = game_id
+            except Exception: pass
+        try: 
+            self.set_status(f"CSV Exported: {path}")
+        except Exception: 
+            print(f"CSV Exported: {path}")
+        
     def set_status(self, text: str):
         if hasattr(self.statusbar, "set_status"):
             self.statusbar.set_status(text)
@@ -1113,7 +1220,7 @@ class TopBar(ttk.Frame):
             self, parent, 
             on_toggle_mode=None, on_home_button=None,
             on_undo_action=None, on_redo_action=None, 
-            on_select_quarter=None, on_end_game=None,
+            on_select_quarter=None,
             on_save_game=None, on_reset_game=None,  
             on_export_image=None, on_export_json=None, on_export_csv=None,
             quarter_var: tk.StringVar | None=None,
