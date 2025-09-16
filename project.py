@@ -1,4 +1,4 @@
-from src.user_interface.dunk_vision_controller import DunkVisionApp
+
 
 def slugify(text: str) -> str: 
     import re 
@@ -9,4 +9,5 @@ def slugify(text: str) -> str:
 
 
 if __name__ == "__main__": 
+    from src.user_interface.dunk_vision_controller import DunkVisionApp
     DunkVisionApp().mainloop()

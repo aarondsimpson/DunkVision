@@ -690,9 +690,9 @@ class CourtFrame(ttk.Frame):
 
             "team_side":        team_side,
             "team_name":        row_team_name,
-            "team_name_slug":   team_slug,
+            "team_slug":   team_slug,
             "opponent_team_name": row_opp_name,
-            "opponent_team_slug": opp_slug,
+            "opp_slug": opp_slug,
             "period":           period,
 
             "player_id":        player_id,
