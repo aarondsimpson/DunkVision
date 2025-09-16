@@ -17,6 +17,7 @@ from src.application_logic.zoning_configuration import shot_distance_from_hoop
 from session_data import team_store as TS
 from src import config
 from session_data.game_io import write_game, read_game
+from project import slugify
 
 BAR_HEIGHT = 60
 SIDE_WIDTH = 300
@@ -614,6 +615,10 @@ class CourtFrame(ttk.Frame):
             self.player_roles.get(s.get("team") or "", {}).get(player_name, "")
         )        
 
+        team_slug = slugify(row_team_name)
+        opp_slug = slugify(row_opp_name)
+        player_slug = slugify(player_name)
+        
         shot_context = s.get("shot_context") or s.get("made_context") or ""
         miss_context = s.get("miss_context") or ("Airball" if s.get("airball") else "")
 
@@ -685,11 +690,14 @@ class CourtFrame(ttk.Frame):
 
             "team_side":        team_side,
             "team_name":        row_team_name,
+            "team_name_slug":   team_slug,
             "opponent_team_name": row_opp_name,
+            "opponent_team_slug": opp_slug,
             "period":           period,
 
             "player_id":        player_id,
             "player_name":      player_name,
+            "player_slug":      player_slug,
             "player_role":      player_role,
 
             "shot_result":      shot_result,
@@ -766,6 +774,10 @@ class CourtFrame(ttk.Frame):
                     "home": self.team_names["home"].get(),
                     "away": self.team_names["away"].get(),
                 },
+                "slugs": {
+                    "home": slugify(self.team_names["home"].get()),
+                    "away": slugify(self.team_names["away"].get()),
+                },
                 "rosters": {
                     "home": list(self.rosters.get("home", [])),
                     "away": list(self.rosters.get("away", [])),
@@ -824,8 +836,8 @@ class CourtFrame(ttk.Frame):
 
         cols = [
             "schema_version","export_timestamp","game_date","game_location","game_id","shot_id",
-            "team_side","team_name","opponent_team_name","period",
-            "player_id","player_name","player_role",
+            "team_side","team_name","opponent_team_name","period", "team_slug", "opp_slug", 
+            "player_id","player_name","player_role", "player_slug",
             "shot_result","shot_points","made_bool", "shot_type",
             "shot_context","miss_context","free_throw_bool","free_throw_type",
             "zone_name","distance_ft","x_court","y_court",
@@ -844,10 +856,13 @@ class CourtFrame(ttk.Frame):
                 "shot_id":          n["shot_id"],
                 "team_side":        n["team_side"],
                 "team_name":        n["team_name"],
+                "team_slug":        n["team_slug"],
                 "opponent_team_name": n["opponent_team_name"],
+                "opp_slug":         n["opp_slug"],
                 "period":           n["period"],
                 "player_id":        n["player_id"],
                 "player_name":      n["player_name"],
+                "player_slug":      n["player_slug"],
                 "player_role":      n["player_role"],
                 "shot_result":      n["shot_result"],
                 "shot_points":      n["shot_points"],
