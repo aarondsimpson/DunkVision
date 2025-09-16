@@ -1,0 +1,5 @@
+Pillow>=10.0
+tkcalendar>=1.6.1
+dataclasses; python_version < "3.7"
+pytest>=8.0
+
