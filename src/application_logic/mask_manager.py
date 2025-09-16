@@ -9,7 +9,6 @@ class MaskManager:
 
     def get_zone_at(self, ix: int, iy: int) -> tuple[str, str]: 
         w, h = self.img.width, self.img.height
-        print(f"[mask] size = {self.img.width} x {self.img.height} ix, iy = {ix}, {iy}")
         if not (0 <= ix < w and 0 <= iy < h):
             return ("OUT_OF_BOUNDS", "Out of Bounds")
     
