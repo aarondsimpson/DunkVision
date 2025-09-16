@@ -25,7 +25,6 @@ class ScreenImage(ttk.Frame):
         self.load_image("court_light", "court_light_mode.png")
         self.load_image("court_dark", "court_dark_mode.png")
 
-        # Bind to the CANVAS so we catch real size changes
         self.canvas.bind("<Configure>", self._on_canvas_configure)
 
         self._draw_info = None
@@ -43,7 +42,6 @@ class ScreenImage(ttk.Frame):
 
     def show(self, key: str) -> None:
         self._current_key = key
-        # Render after layout completes
         self.after_idle(self._render)
 
     def _on_canvas_configure(self, event) -> None:
@@ -105,12 +103,6 @@ class ScreenImage(ttk.Frame):
         else:
             self.canvas.coords(self._image_id, x, y)
             self.canvas.itemconfigure(self._image_id, image=self._photo)
-
-        '''Draws Debugging Rectangle
-        self.canvas.delete("_debug_rect")
-        self.canvas.create_rectangle(x, y, x+iw, y+ih, outline="#ffaa00", width=2, tags="_debug_rect")
-        self.canvas.tag_raise("_debug_rect")
-        '''
 
     def canvas_to_image(self, cx: int, cy: int) -> tuple[int, int] | None: 
         if not self._draw_info:
@@ -181,7 +173,6 @@ class ScreenImage(ttk.Frame):
         except Exception as e:
             print(f"[export_png] ERROR: {e!r}")
             return False
-
 
 
 class StartScreen(ttk.Frame):

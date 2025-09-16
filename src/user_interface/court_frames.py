@@ -87,7 +87,6 @@ class CourtFrame(ttk.Frame):
         self.game_date = None
         self.game_location = None
         
-        #State Definition 
         self.mode="dark"
         self.quarter=tk.StringVar(value="Q1")
         self.actions=[]
@@ -116,13 +115,11 @@ class CourtFrame(ttk.Frame):
                 if name in DEFAULT_ROSTER:
                     self.player_roles[side][name] = name
 
-        #Layout Scaffold
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, minsize=SIDE_WIDTH)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=0)
 
-        #Widget Scaffold
         self.topbar=TopBar(
             self, 
             on_toggle_mode=self.toggle_mode,
@@ -380,7 +377,6 @@ class CourtFrame(ttk.Frame):
         self.set_status(f"Quarter: {q}")
                 
     def save_game(self):
-        # suggest a friendly default name
         default = "game.dvg.json"
         path = filedialog.asksaveasfilename(
             defaultextension=".dvg.json",
@@ -531,7 +527,6 @@ class CourtFrame(ttk.Frame):
                     self.team_names[k].set(name)
             self.rosters = state.get("rosters", {"home": list(DEFAULT_ROSTER), "away": list(DEFAULT_ROSTER)})
 
-            # redraw markers
             self._shot_markers.clear()
             self.center_canvas.show(MODE[self.mode]["image"])
             for p in self.data_points:
@@ -629,9 +624,8 @@ class CourtFrame(ttk.Frame):
             ft_bool = _truthy(ft_bool)
 
         if ft_bool:
-            # prefer explicit reason/type; default to "Free Throw"
             ft_type = str(s.get("free_throw_type") or s.get("ft_reason") or "Free Throw") if ft_bool else "zero"
-            # backfill context
+
             if made_bool and not shot_context:
                 shot_context = "Free Throw"
             elif not made_bool and not miss_context:
@@ -645,10 +639,8 @@ class CourtFrame(ttk.Frame):
         if ft_bool:
             shot_type = "Free Throw"
         elif raw_shot_type:
-            # Honor any explicit choice from the UI (e.g., "Dunk", "Layup")
             shot_type = raw_shot_type
         else:
-            # Fallbacks from zone; keep it lightweight & robust
             zlow = str(zone_name).strip().lower()
             if "dunk" in zlow:
                 shot_type = "Dunk"
@@ -657,7 +649,6 @@ class CourtFrame(ttk.Frame):
             else:
                 shot_type = "Field Goal"
 
-        # one more pass to prefer any existing meta
         shot_type = (s.get("shot_type") or shot_type or "Field Goal")
 
         distance_ft = s.get("distance_ft")
@@ -754,7 +745,6 @@ class CourtFrame(ttk.Frame):
         game_location    = getattr(self, "game_location", "")
         game_id          = getattr(self, "game_id", "") or str(uuid.uuid4())
 
-        # Normalize every shot (includes FT context backfill + FT type default)
         normalized_shots = [
             self._normalize_shot_for_export(s, export_timestamp=export_timestamp, game_id=game_id)
             for s in shots
@@ -764,14 +754,12 @@ class CourtFrame(ttk.Frame):
             "schema_version": SCHEMA_VERSION,
             "export_timestamp": export_timestamp,
 
-            # Game meta
             "game": {
                 "game_id": game_id,
                 "game_date": game_date,
                 "game_location": game_location,
             },
 
-            # Teams meta (labels + current rosters)
             "teams": {
                 "order": list(self.team_order),
                 "names": {
@@ -784,7 +772,6 @@ class CourtFrame(ttk.Frame):
                 },
             },
 
-            # UI / session state that’s useful when re-importing
             "ui": {
                 "mode": self.mode,
                 "quarter": self.quarter.get(),
@@ -794,15 +781,12 @@ class CourtFrame(ttk.Frame):
                     "away": int(self.away_score.get() if self.away_score else 0),
                 },
             },
-
-            # The normalized, typed shots
             "shots": normalized_shots,
         }
 
         with open(path, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
 
-        # keep a stable game_id during the session
         if not getattr(self, "game_id", None):
             try:
                 self.game_id = game_id
@@ -850,12 +834,12 @@ class CourtFrame(ttk.Frame):
         out_rows = []
         for n in normalized_shots:
             out = {
-                # file-level meta
+
                 "schema_version":   SCHEMA_VERSION,
                 "export_timestamp": export_timestamp,
                 "game_date":        game_date,
                 "game_location":    game_location,
-                # shot-level (already normalized)
+
                 "game_id":          n["game_id"],
                 "shot_id":          n["shot_id"],
                 "team_side":        n["team_side"],
@@ -914,11 +898,9 @@ class CourtFrame(ttk.Frame):
             return (s or "").strip().casefold()
 
         try:
-            # prefer a normalized search across all saved teams
             all_saved = TS.list_teams()
             existing = next((t for t in all_saved if _norm(t.team_name) == _norm(new_name)), None)
         except Exception:
-            # fall back to provided helper if list_teams unavailable
             try:
                 t = TS.get_team_by_name(new_name)
                 existing = t
@@ -956,7 +938,6 @@ class CourtFrame(ttk.Frame):
              f'Yes - Overwrite saved roster\nNo = Keep Both(Auto-Suffix Name)')
             )
         if overwrite:
-            # Overwrite the saved team’s roster with current side’s roster
             try:
                 TS.upsert_team(team_name=new_name, roster=list(self.rosters.get(team_key, [])))
                 self.team_names[team_key].set(new_name)
@@ -1321,12 +1302,10 @@ class SideBar(ttk.Frame):
         style.configure("Player.TButton", padding=4)
         style.configure("PlayerSelected.TButton", padding=4, relief="sunken")
 
-        #Team Selector
         self.team_dropdown_var = tk.StringVar()
         self.team_dropdown = ttk.OptionMenu(self.inner, self.team_dropdown_var, "")
         self.team_dropdown.grid(row=1, column=0, sticky="ew", padx=8)
-        
-        #Player List Container
+
         self._make_scrollable_player_list(self.inner)                      
         self.inner.rowconfigure(2, weight=1)                               
         self.inner.columnconfigure(0, weight=1) 
@@ -1335,7 +1314,7 @@ class SideBar(ttk.Frame):
         self.manage_btn.grid(row=3, column=0, padx=8, pady=(8,10), sticky="ew")
         
         self.player_buttons = []
-        self.selected_player_button = None #track selection
+        self.selected_player_button = None 
         self.selected_player_name = None
         self.selected_player_var = tk.StringVar(value="")
         self.selected_player_var.trace_add("write", lambda *_: (
@@ -1448,7 +1427,6 @@ class SideBar(ttk.Frame):
             self.controller.set_status(f"'{new}' already exists.")
             return
 
-        # Update roster list
         idx = roster.index(old)
         roster[idx] = new
 
@@ -1456,12 +1434,10 @@ class SideBar(ttk.Frame):
         if old in roles and new not in roles: 
             roles[new] = roles.pop(old)
 
-        # Update any shots referencing this player for this team
         for p in self.controller.data_points:
             if p.get("team") == key and p.get("player") == old:
                 p["player"] = new
 
-        # (Optional) record action for undo/redo later
         self.controller.actions.append({
             "type": "rename_player",
             "team": key,
@@ -1471,13 +1447,11 @@ class SideBar(ttk.Frame):
         })
         self.controller.redo_stack.clear()
 
-        # UI refresh
         self.refresh_player_list()
         self._select_button_by_text(new)
         self.controller.refresh_stats()
         self._persist_if_saved(key)
         self.controller.set_status(f"Renamed player: {old} → {new}")
-
 
     
     def labels(self):
@@ -1625,7 +1599,6 @@ class SideBar(ttk.Frame):
             if not new_name or new_name == name:
                 return
 
-            # collision policy: overwrite / keep both / cancel
             existing = TS.get_team_by_name(new_name)
             if existing:
                 overwrite = messagebox.askyesno(
@@ -1634,18 +1607,15 @@ class SideBar(ttk.Frame):
                     parent=self)
                 
                 if not overwrite:
-                    # keep both — auto-suffix
                     base, n = new_name, 2
                     while TS.get_team_by_name(f"{base} ({n})"):
                         n += 1
                     new_name = f"{base} ({n})"
 
-            # perform rename by read->write (using upsert with same roster)
             t = TS.get_team_by_name(name)
             if not t:
                 return
             TS.upsert_team(team_name=new_name, roster=list(t.roster or []))
-            # delete old if we truly renamed (not keep-both)
             if new_name != name and existing and overwrite:
                 TS.delete_team(existing.team_id)
             if name != new_name:
@@ -1705,8 +1675,7 @@ class SideBar(ttk.Frame):
         except Exception:
             pass
 
-    #Button Handlers 
-    
+
     def select_player_button(self, btn: ttk.Button):
         if self.selected_player_button is btn:
             try: 
@@ -1859,7 +1828,6 @@ class SideBar(ttk.Frame):
         except Exception:
             pass
 
-        # Status
         if affected_shots:
             self.controller.set_status(
                 f"Removed {name} — {len(affected_shots)} shots set to 'Unassigned'"
@@ -2047,7 +2015,6 @@ class DataBar(ttk.Frame):
             vars["weak_zone"].set(short_zone(weak))
 
         def _is_three_by_zone(z: str) -> bool:
-            """Return True if the zone label clearly indicates a 3-pointer."""
             z = (z or "").lower()
             return any(tok in z for tok in ("3pt", "3-pt", "three", "corner 3", "wing 3", "top 3", "3 point", "3-pointer"))
 
@@ -2147,4 +2114,3 @@ class DataBar(ttk.Frame):
         weak = min(items, key=lambda t: (t[1], t[1] / t[2], -t[2], t[0]))[0]
 
         return dom, weak
-

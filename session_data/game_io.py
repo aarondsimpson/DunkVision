@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -23,7 +22,6 @@ class GameSave:
     history: dict
 
 def build_save_from_court(court) -> GameSave:
-    # court == CourtFrame
     meta = {
         "app": "DunkVision",
         "schema_name": "dv-game",
@@ -40,7 +38,7 @@ def build_save_from_court(court) -> GameSave:
         "names": {k: v.get() for k, v in court.team_names.items()},
         "rosters": {k: list(v) for k, v in court.rosters.items()},
     }
-    shots = list(court.data_points)  # already contains x,y,team,made,meta…
+    shots = list(court.data_points)
     
     idx_by_id = {id(p): i for i, p in enumerate(court.data_points)}
     def sig(p):
@@ -70,7 +68,6 @@ def build_save_from_court(court) -> GameSave:
         })
     
     history = {
-        # Keep undo/redo so you can resume editing naturally.
         "actions": list(court.actions),
         "redo_stack": list(court.redo_stack),
     }
@@ -91,7 +88,6 @@ def write_game(path: Path, court) -> None:
 def read_game(path: Path) -> dict:
     with Path(path).open("r", encoding="utf-8") as f:
         data = json.load(f)
-    # minimal forward-compat checks
     if data.get("schema") != 1 or data.get("meta", {}).get("schema_name") != "dv-game":
         raise ValueError("Unsupported game file.")
     return data

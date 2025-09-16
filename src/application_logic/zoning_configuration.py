@@ -1,13 +1,3 @@
-#STEP THREE IN ZONING
-#STEP FOUR
-#Post-Mask-Creation: Map RGB coors to zone names and metadata(is3pt)
-'''
-ZONE_MAP = {
-(255,0,0): {"name": "Left Corner", "is_3_point": True},
-}
-'''
-#STEP FIVE IN ZONING
-
 from pathlib import Path
 from src.application_logic.mask_manager import MaskManager
 
@@ -15,15 +5,6 @@ MASK_PATH = Path("assets/mask_images/court_mask.png")
 if not MASK_PATH.is_file():
     raise FileNotFoundError(f"Court mask not found at {MASK_PATH}")
 MASK = MaskManager(str(MASK_PATH))
-
-'''
-How to Measure the BBOX: 
-1) Click the left sideline -> Note the ix => COURT_LEFT_PX
-2) Click the right sideline -> Note the ix => COURT_RIGHT_PX
-3) Click the BASELINE under the hoop -> Note the iy => COURT_BASELINE_Y_PX
-4) Click the far visible edge toward midcourt (8ft beyond) -> Note iy => COURT_FAR_EDGE_Y_PX
-5) Click the rim center -> Note ix and iy => HOOP_CX_PX, HOOP_CY_PX
-'''
 
 COURT_WIDTH_FEET = 50.0 #High school court width
 COURT_LENGTH_FEET = 50.0 #42ft for high school half, plus 6ft of half of center ring, plus 2ft to marker
@@ -61,7 +42,6 @@ def _use_defaults_if_missing():
 
 _boot_used_defaults = _use_defaults_if_missing()
 
-#Derived Constants#
 COURT_SPAN_X_PX = abs(COURT_RIGHT_PX - COURT_LEFT_PX)
 COURT_SPAN_Y_PX = abs(COURT_FAR_EDGE_Y_PX - COURT_BASELINE_Y_PX)
 

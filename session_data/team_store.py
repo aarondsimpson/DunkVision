@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import json, os, time, uuid
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -70,8 +69,6 @@ def _upgrade_if_needed(store: dict) -> dict:
         store["schema"] = SCHEMA_VERSION
         _safe_write_json(STORE_PATH, store)
     return store
-
-##PUBLIC API##
 
 def load_store() -> dict:
     if not STORE_PATH.exists():

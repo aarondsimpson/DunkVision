@@ -10,9 +10,6 @@ import calendar as _calendar
 from src.config import ICON_ICO, ICON_PNG
 from src.user_interface.player_dialogs import resolve, confirm, info, error
 
-#
-# Helper Functions
-#
 def _apply_window_icons(win: tk.Toplevel)-> None:
     ico = Path(ICON_ICO)
     png = Path(ICON_PNG)
@@ -45,10 +42,6 @@ def _center_on_parent(win: tk.Toplevel, parent: tk.Misc, margin: int  = 16) -> N
     y = max(margin, min(y, screen_y - wh - margin))
 
     win.geometry(f"+{x}+{y}")
-
-#
-#Dialogs and Modals
-#
 
 def add_player_dialog(
         parent: tk.Misc,
@@ -235,8 +228,7 @@ def shot_result_dialog(parent, *, show_and1: bool = True) -> dict | None:
         return None
     return result  
 
-def choose_one_dialog(parent, *, title: str, prompt: str, options: list[str]) -> str | None:  # <-- new
-    """Returns the chosen label or None."""
+def choose_one_dialog(parent, *, title: str, prompt: str, options: list[str]) -> str | None: 
     win = tk.Toplevel(parent)
     win.title(title)
     win.transient(parent)
@@ -293,12 +285,10 @@ def game_metadata_dialog(parent) -> dict | None:
     if _HAS_TKCALENDAR:
         date_var = tk.StringVar()
         date_ctl = DateEntry(frm, textvariable=date_var, date_pattern="yyyy-mm-dd")
-        # initialize with today's date
         date_ctl.set_date(date.today())
         date_var.set(date.today().isoformat())
         date_ctl.grid(row=1, column=0, sticky="ew", pady=(2, 10))
     else:
-        # Fallback: 3 pickers (Month / Day / Year)
         today = date.today()
         y_var = tk.IntVar(value=today.year)
         m_var = tk.IntVar(value=today.month)
@@ -381,7 +371,6 @@ def game_metadata_dialog(parent) -> dict | None:
     win.bind("<Escape>", lambda _: on_cancel())
     win.protocol("WM_DELETE_WINDOW", on_cancel)
 
-    # focus and center
     loc_ent.focus_set()
     _center_on_parent(win, parent)
     win.deiconify()
