@@ -5,7 +5,7 @@ import os
 import uuid
 from datetime import datetime, date
 from tkinter import ttk, filedialog, messagebox
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw
 from pathlib import Path
 
 from src.user_interface.court_canvas import ScreenImage
@@ -772,20 +772,54 @@ class CourtFrame(ttk.Frame):
             initialdir=str(suggested.parent),
             initialfile=suggested.name,
         )
-        if not path: 
+        if not path:
             return
+   
+        self.update_idletasks()
+        self.center_canvas.update()
+
+        try:
+            src = self.center_canvas.get_current_image()
+            di  = self.center_canvas.get_draw_info()
+
+        except Exception:
+            src, di = None, None
+
+        if src is None or not di:
+            messagebox.showerror("Export Failed",
+                                "Couldn't locate the base court image to render.")
+            self.set_status("Export failed.")
+            return
+
+        draw_x, draw_y, draw_w, draw_h, src_w, src_h, _mode = di
+        base = src.resize((draw_w, draw_h), Image.LANCZOS).convert("RGBA")
+        draw = ImageDraw.Draw(base)
+
+        r = 4
         
-        ok = self.center_canvas.export_png(path)
-        p = Path(path)
-    
-        if ok and p.exists():
-            self.set_status(f"Image Exported: {p}")
-            title, msg = resolve("export_success", path=p)
+        for m in getattr(self, "_shot_markers", []):
+            ix = m.get("ix"); iy = m.get("iy")
+            if ix is None or iy is None:
+                continue
+            cx = ( (ix + 0.5) / max(1, src_w) ) * draw_w
+            cy = ( (iy + 0.5) / max(1, src_h) ) * draw_h
+
+            fill = "#3F704D" if m.get("made") else "#960018"
+            if m.get("team") == "home":
+                draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=fill)
+            else:
+                draw.rectangle((cx - r, cy - r, cx + r, cy + r), fill=fill)
+
+        try:
+            base.save(path, format="PNG")
+            self.set_status(f"Image Exported: {path}")
+            title, msg = resolve("export_success", path=Path(path))
             messagebox.showinfo(title, msg)
-        else: 
-            self.set_status("Export Failed.")
-            title, msg = resolve("export_fail", path=p)
-            messagebox.showerror(title, msg)
+        except Exception as e:
+            self.set_status("Export failed.")
+            title, msg = resolve("export_fail", path=Path(path))
+            messagebox.showerror(title, f"{msg}\n\n{e}")
+
 
     def export_json(self):
         suggested = self._suggest_export_path(".json")

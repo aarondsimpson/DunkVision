@@ -104,6 +104,13 @@ class ScreenImage(ttk.Frame):
             self.canvas.coords(self._image_id, x, y)
             self.canvas.itemconfigure(self._image_id, image=self._photo)
 
+   
+    def get_current_image(self):
+        return self.images.get(self._current_key)
+
+    def get_draw_info(self):
+        return self._draw_info
+
     def canvas_to_image(self, cx: int, cy: int) -> tuple[int, int] | None: 
         if not self._draw_info:
             return None
