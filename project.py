@@ -1,11 +1,23 @@
+import unicodedata
+import re 
+
+_slug_rx = re.compile(r"[^a-z0-9]+")
+_dash_rx = re.compile(r"-{2,}")
+
+def slugify(text: str | None, *, default: str = "unnamed", maxlen: int = 80) -> str:
+    if not text:
+        return default
+    s = unicodedata.normalize("NFKD", str(text))
+    s = s.encode("ascii", "ignore").decode("ascii")
+    s = s.lower().strip()
+    s = _slug_rx.sub("-", s)
+    s = _dash_rx.sub("-", s).strip("-")
+    if maxlen and len(s) > maxlen:
+        s = s[:maxlen].rstrip("-")
+    return s or default
 
 
-def slugify(text: str) -> str: 
-    import re 
-    s = (text or "").strip().lower()
-    s = re.sub(r"[^a-z0-9]+", "-", s)
-    s = re.sub(r"-{2,}", "-", s).strip("-")
-    return s or "unnamed"
+
 
 
 if __name__ == "__main__": 
