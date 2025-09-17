@@ -3,7 +3,7 @@ import csv
 import tkinter as tk
 import os 
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 from pathlib import Path
@@ -17,7 +17,7 @@ from src.application_logic.zoning_configuration import shot_distance_from_hoop
 from session_data import team_store as TS
 from src import config
 from session_data.game_io import write_game, read_game
-from project import slugify
+from project import slugify, next_save_path
 
 BAR_HEIGHT = 60
 SIDE_WIDTH = 300
@@ -295,7 +295,6 @@ class CourtFrame(ttk.Frame):
                 )  
             else:
                 self.set_status(f"Undid: Remove Player ({name})")                          
-
         
     def redo_action(self):
         if not self.redo_stack:
@@ -377,13 +376,52 @@ class CourtFrame(ttk.Frame):
         self.quarter.set(q)
         self.set_status(f"Quarter: {q}")
                 
+    def _date_iso(self, val=None) -> str: 
+        v = val if val is not None else(getattr(self, "game_date", None) or getattr(self, "session_date", None))
+        if isinstance(v, datetime):
+            return v.date().isoformat()
+        if isinstance(v, date):
+            return v.isoformat()
+        if isinstance(v, str):
+            try: 
+                return datetime.fromisoformat(v).date().isoformat()
+            except Exception:
+                pass
+            for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):
+                try: 
+                    return datetime.strptime(v, fmt).date().isoformat()
+                except Exception:
+                    pass
+            return v 
+        return datetime.now().date().isoformat()
+
+    def _suggest_game_path(self) -> Path:
+        saves_dir = Path(getattr(config, "SAVES_DIR", "")) or Path.home() / "DunkVision"/ "saves"
+        d = self._date_iso()
+        home = slugify(self.team_names["home"].get())
+        away = slugify(self.team_names["away"].get())
+        base = f"{d}_{home}_vs_{away}" if home and away else f"{d}_game"
+
+        return next_save_path(
+            saves_dir,
+            base=base,
+            ext=".dvg.json",
+            width=3,
+            start=1,
+            create_dir=True,
+            timestamp_fallback=True,
+            max_n=9999,
+        )
+    
     def save_game(self):
-        default = "game.dvg.json"
+        suggested = self._suggest_game_path()
+
         path = filedialog.asksaveasfilename(
             defaultextension=".dvg.json",
             filetypes=[("DunkVision Game (*.dvg.json)", "*.dvg.json"), ("JSON", "*.json")],
             title="Save Game",
-            initialfile=default,
+            initialdir=str(suggested.parent),
+            initialfile=suggested.name,
         )
         if not path:
             return
@@ -419,7 +457,6 @@ class CourtFrame(ttk.Frame):
         self.data_points = list(data.get("shots", []) or [])
 
         h = data.get("history", {}) or {}
-        has_history = bool(h)
         self.actions = list(h.get("actions", []))
         self.redo_stack = list(h.get("redo_stack", []))
         
@@ -716,11 +753,24 @@ class CourtFrame(ttk.Frame):
             "y_court":          y_court,
     }
 
+    def _suggest_export_path(self, ext: str, base_suffix: str = "") -> Path:
+        d = self._date_iso()
+        home = slugify(self.team_names["home"].get())
+        away = slugify(self.team_names["away"].get())
+        base = f"{d}_{home}_vs_{away}{base_suffix}" if home and away else f"{d}_export{base_suffix}"
+
+        exports_dir = Path(getattr(config, "EXPORTS_DIR", "")) or Path.home() / "DunkVision" / "exports"
+        return next_save_path(exports_dir, base=base, ext=ext, create_dir=True, width=3)
+
+
     def export_image(self):
+        suggested = self._suggest_export_path(".png")
         path = filedialog.asksaveasfilename(
             defaultextension=".png",
             filetypes=[("PNG Image", "*.png")],
             title="Export Court Image",
+            initialdir=str(suggested.parent),
+            initialfile=suggested.name,
         )
         if not path: 
             return
@@ -738,10 +788,13 @@ class CourtFrame(ttk.Frame):
             messagebox.showerror(title, msg)
 
     def export_json(self):
+        suggested = self._suggest_export_path(".json")
         path = filedialog.asksaveasfilename(
             defaultextension=".json",
             filetypes=[("JSON", "*.json")],
             title="Export Data (JSON)",
+            initialdir = str(suggested.parent),
+            initialfile = suggested.name,
         )
         if not path:
             return
@@ -812,10 +865,13 @@ class CourtFrame(ttk.Frame):
 
 
     def export_csv(self):
+        suggested = self._suggest_export_path(".csv")
         path = filedialog.asksaveasfilename(
             defaultextension=".csv",
             filetypes=[("CSV", "*.csv")],
             title="Export Data (CSV)",
+            initialdir=str(suggested.parent),
+            initialfile=suggested.name,
         )
         if not path:
             return
@@ -825,8 +881,6 @@ class CourtFrame(ttk.Frame):
         export_timestamp = datetime.now().isoformat(timespec="seconds")
         game_date        = getattr(self, "game_date", "") or getattr(self, "session_date", "")
         game_location    = getattr(self, "game_location", "")
-        team_name        = getattr(self, "team_name", "") or getattr(self, "my_team_name", "")
-        opponent_name    = getattr(self, "opponent_team_name", "") or getattr(self, "their_team_name", "")
         game_id          = getattr(self, "game_id", "") or str(uuid.uuid4())           
         
         normalized_shots = [
@@ -1538,10 +1592,8 @@ class SideBar(ttk.Frame):
         
         if isinstance(result, dict):
             new_name = (result.get("name") or "").strip()
-            save_flag = bool(result.get("save", True))
         else:
             new_name = (str(result) or "").strip()
-            save_flag = True 
 
         if not new_name:
             return
@@ -2030,9 +2082,13 @@ class DataBar(ttk.Frame):
             vars["weak_zone"].set(short_zone(weak))
 
         def _is_three_by_zone(z: str) -> bool:
-            z = (z or "").lower()
-            return any(tok in z for tok in ("3pt", "3-pt", "three", "corner 3", "wing 3", "top 3", "3 point", "3-pointer"))
-
+            z = (z or "").lower().strip()
+            return(
+                z.endswith("- 3") or
+                "3pt" in z or "3-pt" in z or "3 pointer" in z or "3-pointer" in z or
+                "corner 3" in z or "wing 3" in z or "top 3" in z or "above break 3" in z
+            )
+    
         def _points_for(p: dict) -> int:
             if not p.get("made"):
                 return 0
