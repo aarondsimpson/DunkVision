@@ -1,6 +1,8 @@
 import unicodedata
 import re 
 
+import os 
+
 _slug_rx = re.compile(r"[^a-z0-9]+")
 _dash_rx = re.compile(r"-{2,}")
 
