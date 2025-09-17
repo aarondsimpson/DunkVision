@@ -97,6 +97,13 @@ class CourtFrame(ttk.Frame):
 
         self._last_save_dir: Path | None = None
         self._last_ext: str = ".dvg.json"
+
+        self._last_export_dir: Path | None = None
+        self._last_export_ext: dict[str, str] = {
+            "image": ".png",
+            "json":  ".json",
+            "csv":   ".csv",
+        }
         
         self.team_names={
             "home": tk.StringVar(value="My Team"),
@@ -785,12 +792,19 @@ class CourtFrame(ttk.Frame):
         away = slugify(self.team_names["away"].get())
         base = f"{d}_{home}_vs_{away}{base_suffix}" if home and away else f"{d}_export{base_suffix}"
 
-        exports_dir = Path(getattr(config, "EXPORTS_DIR", "")) or Path.home() / "DunkVision" / "exports"
+        exports_dir = (
+            self._last_export_dir
+            or Path(getattr(config, "EXPORTS_DIR", "")) 
+            or Path.home() / "DunkVision" / "exports"
+        )
+        
         return next_save_path(exports_dir, base=base, ext=ext, create_dir=True, width=3)
 
 
     def export_image(self):
-        suggested = self._suggest_export_path(".png")
+        default_ext = self._last_export_ext.get("image", ".png")
+        suggested = self._suggest_export_path(default_ext)
+
         path = filedialog.asksaveasfilename(
             defaultextension=".png",
             filetypes=[("PNG Image", "*.png")],
@@ -801,6 +815,24 @@ class CourtFrame(ttk.Frame):
         if not path:
             return
    
+        dest = Path(path)
+        desired_ext = "".join(dest.suffixes) or default_ext
+
+        export_base = self._suggest_export_path(desired_ext).stem
+        export_base = export_base[:-(len("_001"))] if export_base.endswith("_001") else export_base
+
+        if dest.stem == suggested.stem or dest.stem.startswith(export_base):
+            dest = next_save_path(
+                dest.parent,
+                base=export_base,
+                ext=desired_ext,
+                width=3,
+                start=1,
+                create_dir=True,
+                timestamp_fallback=True,
+                max_n=9999,
+            )
+
         self.update_idletasks()
         self.center_canvas.update()
 
@@ -837,18 +869,22 @@ class CourtFrame(ttk.Frame):
                 draw.rectangle((cx - r, cy - r, cx + r, cy + r), fill=fill)
 
         try:
-            base.save(path, format="PNG")
-            self.set_status(f"Image Exported: {path}")
-            title, msg = resolve("export_success", path=Path(path))
+            base.save(dest, format="PNG")
+            # remember where/how the user saved
+            self._last_export_dir = dest.parent
+            self._last_export_ext["image"] = desired_ext
+            self.set_status(f"Image Exported: {dest}")
+            title, msg = resolve("export_success", path=dest)
             messagebox.showinfo(title, msg)
         except Exception as e:
             self.set_status("Export failed.")
-            title, msg = resolve("export_fail", path=Path(path))
+            title, msg = resolve("export_fail", path=dest)
             messagebox.showerror(title, f"{msg}\n\n{e}")
 
-
     def export_json(self):
-        suggested = self._suggest_export_path(".json")
+        default_ext = self._last_export_ext.get("json", ".json")
+        suggested = self._suggest_export_path(default_ext)
+        
         path = filedialog.asksaveasfilename(
             defaultextension=".json",
             filetypes=[("JSON", "*.json")],
@@ -858,6 +894,18 @@ class CourtFrame(ttk.Frame):
         )
         if not path:
             return
+        
+        dest = Path(path)
+        desired_ext = "".join(dest.suffixes) or default_ext
+
+        export_base = self._suggest_export_path(desired_ext).stem
+        export_base = export_base[:-(len("_001"))] if export_base.endswith("_001") else export_base
+
+        if dest.stem == suggested.stem or dest.stem.startswith(export_base):
+            dest = next_save_path(
+                dest.parent, base=export_base, ext=desired_ext,
+                width=3, start=1, create_dir=True, timestamp_fallback=True, max_n=9999
+            )    
 
         shots = list(getattr(self, "data_points", []) or [])
 
@@ -918,6 +966,9 @@ class CourtFrame(ttk.Frame):
             except Exception:
                 pass
 
+        self._last_export_dir = dest.parent
+        self._last_export_ext["json"] = desired_ext 
+
         try:
             self.set_status(f"JSON Exported: {path}")
         except Exception:
@@ -925,7 +976,9 @@ class CourtFrame(ttk.Frame):
 
 
     def export_csv(self):
-        suggested = self._suggest_export_path(".csv")
+        default_ext = self._last_export_ext.get("csv", ".csv")
+        suggested = self._suggest_export_path(default_ext)
+        
         path = filedialog.asksaveasfilename(
             defaultextension=".csv",
             filetypes=[("CSV", "*.csv")],
@@ -935,6 +988,18 @@ class CourtFrame(ttk.Frame):
         )
         if not path:
             return
+
+        dest = Path(path)
+        desired_ext = "".join(dest.suffixes) or default_ext
+
+        export_base = self._suggest_export_path(desired_ext).stem
+        export_base = export_base[:-(len("_001"))] if export_base.endswith("_001") else export_base
+
+        if dest.stem == suggested.stem or dest.stem.startswith(export_base):
+            dest = next_save_path(
+                dest.parent, base=export_base, ext=desired_ext,
+                width=3, start=1, create_dir=True, timestamp_fallback=True, max_n=9999
+            )  
 
         shots = list(getattr(self, "data_points", []) or [])
 
@@ -1002,6 +1067,10 @@ class CourtFrame(ttk.Frame):
         if not getattr(self, "game_id", None):
             try: self.game_id = game_id
             except Exception: pass
+
+        self._last_export_dir = dest.parent
+        self._last_export_ext["csv"] = desired_ext
+
         try: 
             self.set_status(f"CSV Exported: {path}")
         except Exception: 
