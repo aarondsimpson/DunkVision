@@ -38,7 +38,11 @@ def next_save_path(
         if not ext.startswith("."):
              ext = f".{ext}"
 
-        rx = re.compile(rf"^{re.escape(base)}_(\d{{{width},}}){re.escape(ext)}$")
+
+        rx = re.compile(
+            rf"^{re.escape(base)}_(\d{{{width},}}){re.escape(ext)}$",
+            re.IGNORECASE
+            )
 
         used: set[int] = set()
         if folder.exists():
@@ -52,6 +56,9 @@ def next_save_path(
                     except ValueError:
                         pass
 
+        if (folder / f"{base}{ext}").exists():
+            used.add(1)
+        
         n = start
         while n in used:
             n += 1
@@ -61,8 +68,6 @@ def next_save_path(
             return folder / f"{base}_{stamp}{ext}"
 
         return folder / f"{base}_{str(n).zfill(width)}{ext}"
-
-
 
 def main():
     from src.user_interface.dunk_vision_controller import DunkVisionApp

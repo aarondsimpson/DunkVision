@@ -9,7 +9,7 @@ from PIL import Image, ImageTk, ImageDraw
 from pathlib import Path
 
 from src.user_interface.court_canvas import ScreenImage
-from src.user_interface.player_dialogs import confirm, info, error, resolve, confirm_action, shots_assigned
+from src.user_interface.player_dialogs import confirm, info, resolve, confirm_action, shots_assigned
 from src.user_interface.modals import (add_player_dialog as add_player_modal, rename_team_dialog, manage_teams_modal, manage_players_dialog,
                                        shot_result_dialog, dunk_or_layup_dialog, choose_one_dialog, free_throw_reason_dialog)
 from src.application_logic.zoning import resolve_zone
@@ -94,6 +94,9 @@ class CourtFrame(ttk.Frame):
         self.redo_stack=[]
         self.data_points=[]
         self.team_order=["home","away"]
+
+        self._last_save_dir: Path | None = None
+        self._last_ext: str = ".dvg.json"
         
         self.team_names={
             "home": tk.StringVar(value="My Team"),
@@ -395,39 +398,62 @@ class CourtFrame(ttk.Frame):
             return v 
         return datetime.now().date().isoformat()
 
-    def _suggest_game_path(self) -> Path:
-        saves_dir = Path(getattr(config, "SAVES_DIR", "")) or Path.home() / "DunkVision"/ "saves"
+    def _game_base(self) -> str:
         d = self._date_iso()
         home = slugify(self.team_names["home"].get())
         away = slugify(self.team_names["away"].get())
-        base = f"{d}_{home}_vs_{away}" if home and away else f"{d}_game"
+        return f"{d}_{home}_vs_{away}" if home and away else f"{d}_game"
 
+    def _suggest_game_path(self) -> Path:
+        base = self._game_base()
+        saves_dir = (
+            self._last_save_dir
+            or Path(getattr(config, "SAVES_DIR", "")) 
+            or Path.home() / "DunkVision"/ "saves"
+        )
+        ext = self._last_ext or ".dvg.json"
         return next_save_path(
-            saves_dir,
-            base=base,
-            ext=".dvg.json",
-            width=3,
-            start=1,
-            create_dir=True,
-            timestamp_fallback=True,
-            max_n=9999,
+            saves_dir, base=base, ext=ext, width=3, create_dir=True,
+            timestamp_fallback=True, start=1, max_n=9999
         )
     
     def save_game(self):
         suggested = self._suggest_game_path()
 
-        path = filedialog.asksaveasfilename(
+        chosen = filedialog.asksaveasfilename(
             defaultextension=".dvg.json",
-            filetypes=[("DunkVision Game (*.dvg.json)", "*.dvg.json"), ("JSON", "*.json")],
+            filetypes=[
+                   ("DunkVision Game (*.dvg.json)", "*.dvg.json"),
+                   ("JSON (*.json)", "*.json"),
+                   ("DunkVision Game (*.dvg)", "*.dvg"),
+                ],
             title="Save Game",
             initialdir=str(suggested.parent),
             initialfile=suggested.name,
         )
-        if not path:
+        if not chosen:
             return
+        
+        dest = Path(chosen)
+        game_base = self._game_base()
+        desired_ext = "".join(dest.suffixes) or ".dvg.json"
+
+        if dest.stem == suggested.stem or dest.stem.startswith(game_base):
+            dest = next_save_path(
+                dest.parent,
+                base=game_base,
+                ext=desired_ext,
+                width=3,
+                start=1,
+                create_dir=True,
+                timestamp_fallback=True,
+                max_n=9999,
+            )
         try:
-            write_game(Path(path), self)
-            self.set_status(f"Saved: {path}")
+            write_game(dest, self)
+            self._last_save_dir = dest.parent
+            self._last_ext = desired_ext
+            self.set_status(f"Saved: {dest}")
         except Exception as e:
             messagebox.showerror("Save Failed", f"{e}")
             self.set_status("Save failed.")
