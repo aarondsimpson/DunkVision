@@ -1,7 +1,8 @@
 from pathlib import Path
 from src.application_logic.mask_manager import MaskManager
+from src import config 
 
-MASK_PATH = Path("assets/mask_images/court_mask.png")
+MASK_PATH = config.MASK_IMAGES_DIR / "court_mask.png"
 if not MASK_PATH.is_file():
     raise FileNotFoundError(f"Court mask not found at {MASK_PATH}")
 MASK = MaskManager(str(MASK_PATH))
