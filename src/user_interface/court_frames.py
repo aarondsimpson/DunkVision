@@ -16,7 +16,7 @@ from src.application_logic.zoning import resolve_zone
 from src.application_logic.zoning_configuration import shot_distance_from_hoop 
 from session_data import team_store as TS
 from src import config
-from session_data.game_io import write_game, read_game
+from session_data.game_io import write_game
 from project import slugify, next_save_path
 
 BAR_HEIGHT = 60
@@ -464,6 +464,42 @@ class CourtFrame(ttk.Frame):
         except Exception as e:
             messagebox.showerror("Save Failed", f"{e}")
             self.set_status("Save failed.")
+
+    def open_game(self):
+        initial_dir = str((self._last_save_dir or Path(getattr(config, "SAVES_DIR", "")) 
+                        or Path.home() / "DunkVision" / "saves"))
+        chosen = filedialog.askopenfilename(
+            title="Open Game",
+            initialdir=initial_dir,
+            filetypes=[
+                ("DunkVision Game (*.dvg.json)", "*.dvg.json"),
+                ("DunkVision Game (*.dvg)", "*.dvg"),
+                ("JSON (*.json)", "*.json"),
+                ("All Files", "*.*"),
+            ],
+        )
+        if not chosen:
+            return
+        
+        p = Path(chosen)
+        from session_data.game_io import safe_read_game
+
+        try: 
+            data = safe_read_game(p)
+        except Exception as e: 
+            messagebox.showerror("Open Failed", str(e), parent=self)
+            self.set_status("Open failed.")
+            return 
+        
+        try:
+            self.load_game_dict(data)
+            self._last_save_dir = p.parent      
+            self._last_ext = "".join(p.suffixes) or ".dvg.json"
+            self.set_status(f"Loaded: {p.name}")
+        except Exception as e:
+            messagebox.showerror("Load Failed", f"{e}", parent=self)
+            self.set_status("Load failed.")
+        
 
     def load_game_dict(self, data: dict):
         ui = data.get("ui", {})

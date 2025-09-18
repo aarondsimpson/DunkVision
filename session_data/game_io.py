@@ -3,6 +3,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 import json, os, time
 from typing import Any
+from project import detect_game_file
 
 def _safe_write_json(path: Path, payload: dict) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
@@ -10,6 +11,19 @@ def _safe_write_json(path: Path, payload: dict) -> None:
     with tmp.open("w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
     os.replace(tmp, path)
+
+def safe_read_game(path: Path) -> dict:
+    verdict = detect_game_file(path)
+    if not verdict.get("ok"):
+        cls = verdict.get("classification", "not_dunkvision")
+        reason = verdict.get("reason", "Unrecognized file.")
+        ext = verdict.get("ext", "")
+        if cls == "maybe_dunkvision":
+            raise ValueError(f"Looks like a DunkVision export, not a game save. {reason}")
+        if reason:
+            raise ValueError(reason if reason.endswith(".") else reason + ".")
+        raise ValueError("Unsupported or invalid game file.")
+    return read_game(path)
 
 @dataclass
 class GameSave:
@@ -68,7 +82,7 @@ def build_save_from_court(court) -> GameSave:
         })
     
     history = {
-        "actions": list(court.actions),
+        "actions": actions_out,
         "redo_stack": list(court.redo_stack),
     }
     return GameSave(
