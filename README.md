@@ -1,6 +1,6 @@
 <h1>🏀 Dunk Vision</h1>
 
-Dunk Vision is a basketball shot tracker and spatial data capture tool built using Python and tkinter. Designed for youth coaches, players, and parents, it lets users track, visualize, export, and analyze shot data to improve individual and team performance on-court and in-training. 
+Dunk Vision is a basketball shot tracker and spatial data capture tool built using Python (3.12.10) and tkinter. Designed for youth coaches, players, and parents, it lets users track, visualize, export, and analyze shot data to improve individual and team performance on-court and in-training. 
 
 <h2>❓ Rationale </h2>
 
@@ -51,14 +51,14 @@ python project.py
 |                |               |tmp              |                          |Stores temporary files for crash protection, user sessions, and exports pre-confirmation|
 |                |               |                 |__ init __.py             |Ensures the 'tmp' folder is identified as a package as harmless boilerplate             |
 |                |src            |                 |                          |Contains all application logic                                                          |
-|                |               |__ init __.py    |                          |Ensures the 'src' folder is identified as a package                                     |      
+|                |               |__ init __.py    |                          |Ensures the 'src' folder is identified as a package                                |      
 |                |               |config.py        |                          |Contains centralized application settings and pathing constants                         |
 |                |               |application_logic|                          |Controls the court mask and court zone logic for data analysis and shot recognition     |
 |                |               |                 |__ init __.py             |Ensures that the 'application_logic' folder is identified as a package                  |
 |                |               |                 |court_mask_color_ledger.py|Defines zones by RGB signatures for later access                                        |
 |                |               |                 |mask_manager.py           |Inspects the mask image and maps click coordinates to an RGB zone defined in the mask   |
 |                |               |                 |zoning.py                 |Defines zones and handles click-hit detection                                           |
-|                |               |                 |zone_configuration.py     |Normalizes click coordinates and connects mask data to game logic                       |
+|                |               |                 |zoning_configuration.py   |Normalizes click coordinates and connects mask data to game logic                       |
 |                |               |user_interface   |                          |Contains all user interface modules                                                     | 
 |                |               |                 |__ init __.py             |Ensures that the 'user interface' folder is identified as a package                     |
 |                |               |                 |court_canvas.py           |Controls the rendering for court visuals and overlays                                   |
@@ -78,7 +78,7 @@ python project.py
 4. Click on the court to record a shot, completing the modal sequence to gather shot data and update the scoreboard. 
 5. Review the real-time data analysis card on the right of the screen as shots are recorded throughout the game. 
 6. Select "Save Game" to create a "dv-game.json" file that can be loaded later for review or further tracking. 
-7. Select "Save Image" to create a ".png" of the court showing the shot locations. 
+7. Select "Export Image" to create a ".png" of the court showing the shot locations. 
 8. Export game data for further analysis by selecting "Export CSV" or "Export JSON".
 
 > ⚠️ Note: Once new teams are added, you must first have "My Team" selected, then select the new team from the dropdown to swap it with "My Team" to have that custom team appear as *your team*. Equally, when adding a team for "Their Team", you must select "Their Team" first, then the dropdown, then select the new team to swap it and record it as the opponent team.  
