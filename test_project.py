@@ -1,5 +1,5 @@
-import string, re
-from project import slugify, next_save_path
+import string, re, json
+from project import slugify, next_save_path, detect_game_file
 
 def test_slugify():
     def is_ascii_slug(s: str) -> bool:
@@ -67,5 +67,43 @@ def test_next_save_path(tmp_path):
     assert out.name.startswith("game_")
     assert re.match(r"^game_\d{8}_\d{6}\.json$", out.name)
 
+def test_detect_game_file(tmp_path):
+    valid_file = tmp_path / "valid.dvg.json"
+    payload = {
+        "schema": 1,
+        "meta": {"schema_name": "dv-game"},
+        "teams": {"names": {"home": "Team A", "away": "Team B"}},
+        "ui": {"mode": "dark", "quarter": "Q1"},
+    }
+    valid_file.write_text(json.dumps(payload), encoding="utf-8")
+    result = detect_game_file(valid_file)
+    assert result["ok"] is True
+    assert result["classification"] == "valid_dunkvision"
+    assert result["safe_to_open_with_read_game"] is True
+    assert result["schema"] == 1
+    assert result["schema_name"] == "dv-game"
+
+    bad_json = tmp_path / "bad.json"
+    bad_json.write_text("{not valid json", encoding="utf-8")
+    result = detect_game_file(bad_json)
+    assert result["ok"] is False
+    assert "Invalid JSON" in result["reason"]
+
+    binary_file = tmp_path / "file.docx"
+    binary_file.write_bytes(b"\x50\x4B\x03\x04")  # PK ZIP header
+    result = detect_game_file(binary_file)
+    assert result["ok"] is False
+    assert "Not UTF-8 text" in result["reason"]
+
+    export_file = tmp_path / "export.json"
+    export_file.write_text(json.dumps({"shots": []}), encoding="utf-8")
+    result = detect_game_file(export_file)
+    assert result["ok"] is False
+    assert result["classification"] in ("maybe_dunkvision", "not_dunkvision")
+
+    missing_file = tmp_path / "missing.dvg.json"
+    result = detect_game_file(missing_file)
+    assert result["ok"] is False
+    assert "does not exist" in result["reason"].lower()
 
     

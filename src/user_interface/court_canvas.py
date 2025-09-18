@@ -4,7 +4,7 @@ from PIL import Image, ImageTk, ImageColor
 from src.config import SCREEN_IMAGES_DIR
 from pathlib import Path
 from tkinter import filedialog, messagebox
-from session_data.game_io import read_game
+from session_data.game_io import safe_read_game
 
 NATIVE_WIDTH = 1366
 NATIVE_HEIGHT = 768
@@ -242,24 +242,40 @@ class StartScreen(ttk.Frame):
         self.controller.show_court_screen(ask_meta=True) 
 
     def load_session(self):
+        from pathlib import Path
+
         path = filedialog.askopenfilename(
-            filetypes=[("DunkVision Game (*.dvg.json)", "*.dvg.json"), ("JSON", "*.json")],
             title="Load Game",
+            filetypes=[
+                ("DunkVision Game (*.dvg.json)", "*.dvg.json"),
+                ("DunkVision Game (*.dvg)", "*.dvg"),
+                ("JSON (*.json)", "*.json"),
+                ("All Files", "*.*"),
+            ],
         )
         if not path:
             return
-        try:
-            data = read_game(path)
-            self.controller.show_court_screen(ask_meta=False)
 
-            cf = self.controller.center
-            if hasattr(cf, "load_game_dict") and callable(cf.load_game_dict):
-                 cf.load_game_dict(data)
-            else: 
-                messagebox.showwarning("Loaded, but...", 
-                                       "Could not find CourtFrame.load_game_dict; game opened without data.")
+        try:
+            data = safe_read_game(Path(path))
         except Exception as e:
-            messagebox.showerror("Load Failed", f"{e}")
+            messagebox.showerror("Load Failed", str(e), parent=self)
+            return
+
+        cf = self.controller.show_court_screen(ask_meta=False)
+
+        if cf is None:
+            cf = getattr(self.controller, "center", None)
+
+        if hasattr(cf, "load_game_dict") and callable(cf.load_game_dict):
+            cf.load_game_dict(data)
+        else:
+            messagebox.showwarning(
+                "Loaded, but...",
+                "Could not find CourtFrame.load_game_dict; game opened without data.",
+                parent=self,
+            )
+
 
 
 class CourtScreen(ttk.Frame):

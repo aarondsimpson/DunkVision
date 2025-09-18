@@ -16,7 +16,7 @@ from src.application_logic.zoning import resolve_zone
 from src.application_logic.zoning_configuration import shot_distance_from_hoop 
 from session_data import team_store as TS
 from src import config
-from session_data.game_io import write_game
+from session_data.game_io import write_game, safe_read_game
 from project import slugify, next_save_path
 
 BAR_HEIGHT = 60

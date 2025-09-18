@@ -108,87 +108,87 @@ def _peek_header(payload: Any) -> dict:
             header["ui.quarter"] = ui.get("quarter")
     return {k: v for k, v in header.items() if v is not None}
 
-def detect_game_file(path: str | Path, *, max_bytes: int = 20 * 1024 * 1024) -> DetectResult:
+def _looks_like_text(b: bytes) -> bool:
+    head = b[:4096]
+    binary_magics = (
+        b"\x50\x4B\x03\x04",  # ZIP (docx, xlsx, etc.)
+        b"%PDF",              # PDF
+        b"\x89PNG",           # PNG
+        b"\xFF\xD8\xFF",      # JPEG
+    )
+    if b"\x00" in head:
+        return False
+    if any(head.startswith(m) for m in binary_magics):
+        return False
+
+    ctrl = sum(1 for c in head if c < 32 and c not in (9, 10, 13))
+    return ctrl <= 2
+
+
+def detect_game_file(path):
     p = Path(path)
-    result: DetectResult = {
+    ext = "".join(p.suffixes).lower()
+
+    out = {
         "ok": False,
         "classification": "not_dunkvision",
+        "ext": ext,
         "reason": "",
         "safe_to_open_with_read_game": False,
-        "path": str(p),
-        "size": 0,
-        "ext": "".join(p.suffixes).lower(),
-        "is_json": False,
-        "schema": None,
-        "schema_name": None,
-        "header": {},
-        "suggested_ext": ".dvg.json",
     }
 
     if not p.exists():
-        result["reason"] = "File does not exist."
-        return result
-    if not p.is_file():
-        result["reason"] = "Not a regular file."
-        return result
+        out["reason"] = "File does not exist."
+        return out
+    if p.is_dir():
+        out["reason"] = "Path is a directory, not a file."
+        return out
+    
+    try:
+        raw = p.read_bytes()
+    except Exception as e:
+        out["reason"] = f"File not readable: {e}"
+        return out
+
+    if not _looks_like_text(raw):
+        out["reason"] = "Not UTF-8 text."
+        return out
 
     try:
-        size = p.stat().st_size
-    except Exception:
-        size = -1
-    result["size"] = int(size) if size is not None else -1
-    if size >= 0 and size > max_bytes:
-        result["reason"] = f"File is too large for a save ({size} bytes)."
-        return result
-
-    try:
-        with p.open("r", encoding="utf-8") as f:
-            payload = json.load(f)
-        result["is_json"] = True
+        text = raw.decode("utf-8")
     except UnicodeDecodeError:
-        result["reason"] = "Not UTF-8 text (likely binary, e.g., .docx)."
-        return result
-    except json.JSONDecodeError:
-        result["reason"] = "Invalid JSON."
-        return result
-    except PermissionError:
-        result["reason"] = "Permission denied."
-        return result
-    except OSError as e:
-        result["reason"] = f"I/O error: {e}"
-        return result
+        out["reason"] = "Not UTF-8 text."
+        return out
 
+    try:
+        data = json.loads(text)
+    except Exception:
+        out["reason"] = "Invalid JSON."
+        return out
 
-    schema = payload.get("schema") if isinstance(payload, dict) else None
-    meta = payload.get("meta") if isinstance(payload, dict) else None
-    schema_name = meta.get("schema_name") if isinstance(meta, dict) else None
+    schema = data.get("schema")
+    schema_name = (data.get("meta") or {}).get("schema_name")
+    if schema == 1 and schema_name == "dv-game":
+        out.update({
+            "ok": True,
+            "classification": "valid_dunkvision",
+            "safe_to_open_with_read_game": True,
+            "schema": schema,
+            "schema_name": schema_name,
+            "reason": "",
+        })
+        return out
 
-    result["schema"] = schema if isinstance(schema, int) else None
-    result["schema_name"] = schema_name if isinstance(schema_name, str) else None
-    result["header"] = _peek_header(payload)
+    if (data.get("schema_version") == "dv_shots_v1") or ("shots" in data and "ui" in data and "teams" in data):
+        out.update({
+            "ok": False,
+            "classification": "maybe_dunkvision",
+            "reason": "Looks like a DunkVision export, not a game save.",
+        })
+        return out
 
-    if result["schema"] == 1 and result["schema_name"] == "dv-game":
-        result["ok"] = True
-        result["classification"] = "valid_dunkvision"
-        result["safe_to_open_with_read_game"] = True
-
-        ext = result["ext"] or ""
-        if ext not in (".dvg.json",):
-            result["suggested_ext"] = ".dvg.json"
-        return result
-
-    if isinstance(payload, dict):
-        if payload.get("schema_version") == "dv_shots_v1" or "shots" in payload:
-            result["reason"] = "JSON looks like an export dataset, not a game save."
-            result["classification"] = "maybe_dunkvision"  
-            return result
-
-        result["reason"] = "JSON present but missing DunkVision game schema."
-        result["classification"] = "not_dunkvision"
-        return result
-
-    result["reason"] = "Unrecognized file format."
-    return result
+    out["reason"] = "Unrecognized file."
+    return out
 
 
 def main():

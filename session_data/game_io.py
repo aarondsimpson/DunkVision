@@ -2,7 +2,6 @@ from __future__ import annotations
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import json, os, time
-from typing import Any
 from project import detect_game_file
 
 def _safe_write_json(path: Path, payload: dict) -> None:
