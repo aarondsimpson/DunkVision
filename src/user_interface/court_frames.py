@@ -1608,7 +1608,16 @@ class SideBar(ttk.Frame):
         roster = list(self.controller.rosters.get(key, []))
         initial = self.selected_player_var.get().strip() or None
 
-        result = manage_players_dialog(self, players=roster, initial=initial)
+        current_roles = self.controller.player_roles.get(key, {})
+        positions = DEFAULT_ROSTER 
+
+        result = manage_players_dialog(
+            self, 
+            players=roster, 
+            initial=initial,
+            positions=positions,
+            current_roles=current_roles,
+        )
         if not result:
             return
         
@@ -1618,21 +1627,30 @@ class SideBar(ttk.Frame):
             if name in roster:
                 self.controller.set_status(f"'{name}' already on roster.")
                 return
-             
+            
+            pos = result.get("position") or positions[0]             
             self.controller.rosters[key].append(name)
+            self.controller.player_roles.setdefault(key, {})[name] = pos
+
             self.controller.actions.append({
                 "type": "add_player",
                 "team": key,
                 "name": name,
-                "position": "",     
+                "position": pos,     
                 "index": len(self.controller.rosters[key]) - 1,
             })
             self.controller.redo_stack.clear()
             self.refresh_player_list()
             self._select_button_by_text(name)
             self._persist_if_saved(key)
-            self.controller.set_status(f"Added {name}")
+            self.controller.set_status(f"Added {name} ({pos})")
 
+        elif action == "set_role":
+            name = result["name"]
+            pos = result.get("position") or ""
+            self.controller.player_roles.setdefault(key, {})[name] = pos
+            self.controller.set_status(f"Set role for {name} → {pos}")
+        
         elif action == "rename":
             old = result["old"]
             new = result["new"]

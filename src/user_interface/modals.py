@@ -481,12 +481,17 @@ def manage_teams_modal(parent, *, team_names: list[str]) -> dict | None:
     parent.wait_window(win)
     return result["val"]
 
-def manage_players_dialog(parent, *, players, title="Manage Players", initial=None):
+def manage_players_dialog(parent, *, players, title="Manage Players", initial=None, positions=None, current_roles=None):
+    positions = positions or ["Point Guard","Shooting Guard","Small Forward","Power Forward","Center"]
+    current_roles = current_roles or {}
+    
     win = tk.Toplevel(parent)
     win.title(title)
     win.transient(parent)
     win.grab_set()
     win.resizable(False, False)
+
+    _apply_window_icons(win)
 
     frm = ttk.Frame(win, padding=10)
     frm.grid(sticky="nsew")
@@ -505,6 +510,11 @@ def manage_players_dialog(parent, *, players, title="Manage Players", initial=No
     ent = ttk.Entry(frm, textvariable=name_var, width=28)
     ent.grid(row=3, column=0, sticky="ew")
 
+    ttk.Label(frm, text="Role / Position").grid(row=4, column=0, sticky="w", pady=(8,0))
+    role_var = tk.StringVar(value=positions[0])
+    role_cb = ttk.Combobox(frm, textvariable=role_var, values=positions, state="readonly")
+    role_cb.grid(row=5, column=0, sticky="ew")
+
     def _sel_name():
         try:
             i = lb.curselection()
@@ -516,6 +526,8 @@ def manage_players_dialog(parent, *, players, title="Manage Players", initial=No
         sel = _sel_name()
         if sel:
             name_var.set(sel)
+            if sel in current_roles:
+                role_var.set(current_roles.get(sel) or positions[0])
     lb.bind("<<ListboxSelect>>", _on_select)
 
     result = {"val": None}
@@ -542,13 +554,27 @@ def manage_players_dialog(parent, *, players, title="Manage Players", initial=No
         result["val"] = {"action": "remove", "name": nm}
         win.destroy()
         
-    btns = ttk.Frame(frm)
-    btns.grid(row=4, column=0, sticky="ew", pady=(10,0))
-    ttk.Button(btns, text="Add", width=10, command=do_add).grid(row=0, column=0, padx=4)
-    ttk.Button(btns, text="Rename", width=10, command=do_rename).grid(row=0, column=1, padx=4)
-    ttk.Button(btns, text="Delete", width=10, command=do_remove).grid(row=0, column=2, padx=4)
-    ttk.Button(btns, text="Cancel", width=10, command=win.destroy).grid(row=0, column=3, padx=4)
+    def do_set_role():
+        nm = _sel_name()
+        if not nm:
+            return
+        result["val"] = {"action": "set_role", "name": nm, "position": role_var.get()}
+        win.destroy()
 
+    btns = ttk.Frame(frm)
+    btns.grid(row=6, column=0, sticky="ew", pady=(10, 0))  
+    btns.grid_columnconfigure(0, weight=1)
+    btns.grid_columnconfigure(1, weight=1)
+    btns.grid_columnconfigure(2, weight=1)
+    btns.grid_columnconfigure(3, weight=1)
+    btns.grid_columnconfigure(4, weight=1)
+
+    ttk.Button(btns, text="Add",    width=10, command=do_add   ).grid(row=0, column=0, padx=4, sticky="ew")
+    ttk.Button(btns, text="Rename", width=10, command=do_rename).grid(row=0, column=1, padx=4, sticky="ew")
+    ttk.Button(btns, text="Delete", width=10, command=do_remove).grid(row=0, column=2, padx=4, sticky="ew")
+    ttk.Button(btns, text="Cancel", width=10, command=win.destroy).grid(row=0, column=3, padx=4, sticky="ew")
+    ttk.Button(btns, text="Set Role",          command=do_set_role).grid(row=0, column=4, padx=4, sticky="ew")
+    
     ent.focus_set()
     parent.wait_window(win)
     return result["val"]
