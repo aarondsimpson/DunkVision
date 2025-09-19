@@ -12,20 +12,32 @@ For this reason, I built a tool that turns wild pickup games into strategic oppo
 
 
 <h2>💻 Installation</h2>
-
-<h3>Clone the Repository</h3>
+<h3> From GitHub Repository </h3>
+<h4>Clone the Repository</h4>
 <pre>
 git clone https://github.com/aarondsimpson/DunkVision.git
 cd DunkVision
 </pre>
-<h3> Install Dependencies</h3>
+<h4> Install Dependencies</h4>
 <pre>
 pip install -r requirements.txt
 </pre>
-<h3> Run the App</h3>
+<h4> Run the App</h4>
 <pre>
 python project.py
 </pre>
+<h3> From GitHub Releases </h3>
+<pre>
+Navigate to 'Releases'
+Select 'Dunk Vision (Latest)'
+Select 'DunkVision.exe' to download
+From the download bar, select the 'More Actions' menu
+Select 'Keep'
+Select the dropdown menu on the 'Delete' button
+Select 'Keep Anyway'
+Open DunkVision from the downloads folder
+</pre>
+
 
 
 <h2>🌳 Project Layout</h2>
