@@ -2,6 +2,8 @@
 
 Dunk Vision is a basketball shot tracker and spatial data capture tool built using Python (3.12.10) and tkinter. Designed for youth coaches, players, and parents, it lets users track, visualize, export, and analyze shot data to improve individual and team performance on-court and in-training. 
 
+The short product overview can be viewed at this [YouTube link](https://youtu.be/x_lsDGq5Brs).
+
 <h2>❓ Rationale </h2>
 
 Youth organizations are propped up by limited funding, over-stretched coaches, burned-out parents, and the goodwill of local communities. Jerseys often escape the budget. Lunch is provided by turn-taking parents. Training is last-minute as coaches and teenagers balance their personal lives.  
